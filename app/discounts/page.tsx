@@ -13,15 +13,38 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { supabase } from "@/lib/supabase"
 import { Plus, Edit, Trash2, Search } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import type { Database } from "@/lib/supabase"
 import { SimpleTableHeader } from "@/components/table-header"
 
-type Discount = Database["public"]["Tables"]["discounts"]["Row"]
-type DiscountInsert = Database["public"]["Tables"]["discounts"]["Insert"]
-type DiscountUpdate = Database["public"]["Tables"]["discounts"]["Update"]
+type Discount = {
+  id: number
+  code: string
+  description: string | null
+  discount_type: "percentage" | "fixed_amount"
+  value: number
+  valid_until: string | null
+  minimum_amount: number | null
+  max_discount_amount: number | null
+  usage_limit: number | null
+  usage_count: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+type DiscountInsert = {
+  code: string
+  description: string
+  discount_type: "percentage" | "fixed_amount"
+  value: number
+  valid_until: string
+  minimum_amount: number
+  max_discount_amount: number
+  usage_limit: number
+  usage_count: number
+  is_active: boolean
+}
 
 export default function DiscountsPage() {
   const [discounts, setDiscounts] = useState<Discount[]>([])
@@ -49,10 +72,10 @@ export default function DiscountsPage() {
 
   const fetchDiscounts = async () => {
     try {
-      const { data, error } = await supabase.from("discounts").select("*").order("created_at", { ascending: false })
-
-      if (error) throw error
-      setDiscounts(data || [])
+      const response = await fetch("/api/discounts")
+      if (!response.ok) throw new Error("Failed to fetch discounts")
+      const data = await response.json()
+      setDiscounts(data)
     } catch (error) {
       console.error("Error fetching discounts:", error)
       toast({
@@ -70,20 +93,23 @@ export default function DiscountsPage() {
 
     try {
       if (editingDiscount) {
-        const { error } = await supabase
-          .from("discounts")
-          .update(formData as DiscountUpdate)
-          .eq("id", editingDiscount.id)
-
-        if (error) throw error
+        const response = await fetch("/api/discounts", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: editingDiscount.id, ...formData }),
+        })
+        if (!response.ok) throw new Error("Failed to update discount")
         toast({
           title: "Berhasil",
           description: "Discount berhasil diperbarui",
         })
       } else {
-        const { error } = await supabase.from("discounts").insert([formData])
-
-        if (error) throw error
+        const response = await fetch("/api/discounts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        })
+        if (!response.ok) throw new Error("Failed to create discount")
         toast({
           title: "Berhasil",
           description: "Discount berhasil ditambahkan",
@@ -136,9 +162,10 @@ export default function DiscountsPage() {
     if (!confirm("Apakah Anda yakin ingin menghapus discount ini?")) return
 
     try {
-      const { error } = await supabase.from("discounts").delete().eq("id", id)
-
-      if (error) throw error
+      const response = await fetch(`/api/discounts?id=${id}`, {
+        method: "DELETE",
+      })
+      if (!response.ok) throw new Error("Failed to delete discount")
       toast({
         title: "Berhasil",
         description: "Discount berhasil dihapus",

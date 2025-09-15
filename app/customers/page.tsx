@@ -8,14 +8,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table"
-import { sql, type Tables, type Inserts, type Updates } from "@/lib/database"
 import { Plus, Search, Edit, Trash2, Save, X } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { SimpleTableHeader } from "@/components/table-header"
 
-type Customer = Tables<"customers">
-type CustomerInsert = Inserts<"customers">
-type CustomerUpdate = Updates<"customers">
+type Customer = {
+  id: number
+  name: string
+  email: string
+  phone_number: string | null
+  created_at: string
+  updated_at: string
+}
+
+type CustomerInsert = {
+  name: string
+  email: string
+  phone_number: string
+}
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -36,11 +46,10 @@ export default function CustomersPage() {
 
   const fetchCustomers = async () => {
     try {
-      const data = await sql`
-        SELECT * FROM customers 
-        ORDER BY created_at DESC
-      `
-      setCustomers(data as Customer[])
+      const response = await fetch("/api/customers")
+      if (!response.ok) throw new Error("Failed to fetch customers")
+      const data = await response.json()
+      setCustomers(data)
     } catch (error) {
       console.error("Error fetching customers:", error)
       toast({
@@ -58,23 +67,23 @@ export default function CustomersPage() {
 
     try {
       if (editingCustomer) {
-        await sql`
-          UPDATE customers 
-          SET name = ${formData.name}, 
-              email = ${formData.email}, 
-              phone_number = ${formData.phone_number},
-              updated_at = NOW()
-          WHERE id = ${editingCustomer.id}
-        `
+        const response = await fetch("/api/customers", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: editingCustomer.id, ...formData }),
+        })
+        if (!response.ok) throw new Error("Failed to update customer")
         toast({
           title: "Berhasil",
           description: "Customer berhasil diperbarui",
         })
       } else {
-        await sql`
-          INSERT INTO customers (name, email, phone_number, created_at, updated_at)
-          VALUES (${formData.name}, ${formData.email}, ${formData.phone_number}, NOW(), NOW())
-        `
+        const response = await fetch("/api/customers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        })
+        if (!response.ok) throw new Error("Failed to create customer")
         toast({
           title: "Berhasil",
           description: "Customer berhasil ditambahkan",
@@ -100,7 +109,7 @@ export default function CustomersPage() {
     setFormData({
       name: customer.name,
       email: customer.email,
-      phone_number: customer.phone_number,
+      phone_number: customer.phone_number || "",
     })
     setShowForm(true)
   }
@@ -109,7 +118,10 @@ export default function CustomersPage() {
     if (!confirm("Apakah Anda yakin ingin menghapus customer ini?")) return
 
     try {
-      await sql`DELETE FROM customers WHERE id = ${id}`
+      const response = await fetch(`/api/customers?id=${id}`, {
+        method: "DELETE",
+      })
+      if (!response.ok) throw new Error("Failed to delete customer")
       toast({
         title: "Berhasil",
         description: "Customer berhasil dihapus",

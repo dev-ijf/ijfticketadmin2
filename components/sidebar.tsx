@@ -1,8 +1,8 @@
-"use client";
+"use client"
 
-import Link from "next/link";
-import Image from "next/image";
-import { usePathname } from "next/navigation";
+import Link from "next/link"
+import Image from "next/image"
+import { usePathname } from "next/navigation"
 import {
   Calendar,
   Users,
@@ -14,13 +14,10 @@ import {
   Home,
   Bell,
   MessageSquare,
-  PanelLeft,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useState } from "react";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
+} from "lucide-react"
+import { cn } from "@/lib/utils"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { Sheet, SheetContent } from "@/components/ui/sheet"
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home },
@@ -45,25 +42,16 @@ const navigation = [
     href: "/notification-logs",
     icon: MessageSquare,
   },
-];
+]
 
-export function Sidebar({
-  open,
-  setOpen,
-}: { open?: boolean; setOpen?: (open: boolean) => void } = {}) {
-  const pathname = usePathname();
-  const isMobile = useIsMobile();
+export function Sidebar({ open, setOpen }: { open?: boolean; setOpen?: (open: boolean) => void } = {}) {
+  const pathname = usePathname()
+  const isMobile = useIsMobile()
 
   const sidebarContent = (
     <div className="flex h-full w-64 flex-col bg-gradient-to-b from-purple-600 to-purple-800">
       <div className="flex h-20 shrink-0 items-center justify-center px-6">
-        <Image
-          src="/logo-main-new.png"
-          alt="Kreativa Global School"
-          width={64}
-          height={64}
-          className="h-16 w-16"
-        />
+        <Image src="/logo-main-new.png" alt="Kreativa Global School" width={64} height={64} className="h-16 w-16" />
       </div>
       <nav className="flex flex-1 flex-col px-4 pb-4">
         <ul role="list" className="flex flex-1 flex-col gap-y-1">
@@ -74,7 +62,7 @@ export function Sidebar({
                 className={cn(
                   pathname === item.href
                     ? "bg-purple-700 text-white"
-                    : "text-purple-100 hover:text-white hover:bg-purple-700",
+                    : "text-white hover:text-white hover:bg-purple-700/50", // Changed from text-purple-100 to text-white for better contrast
                   "group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold transition-colors",
                 )}
               >
@@ -86,24 +74,21 @@ export function Sidebar({
         </ul>
       </nav>
     </div>
-  );
+  )
 
   if (isMobile && open !== undefined && setOpen) {
     return (
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent
-          side="left"
-          className="p-0 w-64 max-w-full bg-gradient-to-b from-purple-600 to-purple-800"
-        >
+        <SheetContent side="left" className="p-0 w-64 max-w-full bg-gradient-to-b from-purple-600 to-purple-800">
           {sidebarContent}
         </SheetContent>
       </Sheet>
-    );
+    )
   }
 
   return (
     <div className="hidden md:flex h-full w-64 flex-col bg-gradient-to-b from-purple-600 to-purple-800">
       {sidebarContent}
     </div>
-  );
+  )
 }
