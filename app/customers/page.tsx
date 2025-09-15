@@ -1,69 +1,87 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useEffect, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Search, Edit, Trash2, Save, X } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import { SimpleTableHeader } from "@/components/table-header"
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Plus, Search, Edit, Trash2, Save, X } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { SimpleTableHeader } from "@/components/table-header";
 
 type Customer = {
-  id: number
-  name: string
-  email: string
-  phone_number: string | null
-  created_at: string
-  updated_at: string
-}
+  id: number;
+  name: string;
+  email: string;
+  phone_number: string | null;
+  created_at: string;
+  updated_at: string;
+};
 
 type CustomerInsert = {
-  name: string
-  email: string
-  phone_number: string
-}
+  name: string;
+  email: string;
+  phone_number: string;
+};
 
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
-  const [showForm, setShowForm] = useState(false)
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState<CustomerInsert>({
     name: "",
     email: "",
     phone_number: "",
-  })
-  const { toast } = useToast()
+  });
+  const { toast } = useToast();
 
   useEffect(() => {
-    fetchCustomers()
-  }, [])
+    fetchCustomers();
+  }, []);
 
   const fetchCustomers = async () => {
     try {
-      const response = await fetch("/api/customers")
-      if (!response.ok) throw new Error("Failed to fetch customers")
-      const data = await response.json()
-      setCustomers(data)
+      const response = await fetch("/api/customers");
+      if (!response.ok) throw new Error("Failed to fetch customers");
+      const data = await response.json();
+      // Ensure data is an array
+      if (Array.isArray(data)) {
+        setCustomers(data);
+      } else {
+        console.error("Invalid data format received:", data);
+        setCustomers([]);
+        toast({
+          title: "Warning",
+          description: "Data format tidak valid, menampilkan data kosong",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
-      console.error("Error fetching customers:", error)
+      console.error("Error fetching customers:", error);
+      setCustomers([]); // Reset to empty array on error
       toast({
         title: "Error",
         description: "Gagal memuat data customers",
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     try {
       if (editingCustomer) {
@@ -71,84 +89,90 @@ export default function CustomersPage() {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id: editingCustomer.id, ...formData }),
-        })
-        if (!response.ok) throw new Error("Failed to update customer")
+        });
+        if (!response.ok) throw new Error("Failed to update customer");
         toast({
           title: "Berhasil",
           description: "Customer berhasil diperbarui",
-        })
+        });
       } else {
         const response = await fetch("/api/customers", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(formData),
-        })
-        if (!response.ok) throw new Error("Failed to create customer")
+        });
+        if (!response.ok) throw new Error("Failed to create customer");
         toast({
           title: "Berhasil",
           description: "Customer berhasil ditambahkan",
-        })
+        });
       }
 
-      setShowForm(false)
-      setEditingCustomer(null)
-      setFormData({ name: "", email: "", phone_number: "" })
-      fetchCustomers()
+      setShowForm(false);
+      setEditingCustomer(null);
+      setFormData({ name: "", email: "", phone_number: "" });
+      fetchCustomers();
     } catch (error) {
-      console.error("Error saving customer:", error)
+      console.error("Error saving customer:", error);
       toast({
         title: "Error",
         description: "Gagal menyimpan customer",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   const handleEdit = (customer: Customer) => {
-    setEditingCustomer(customer)
+    setEditingCustomer(customer);
     setFormData({
       name: customer.name,
       email: customer.email,
       phone_number: customer.phone_number || "",
-    })
-    setShowForm(true)
-  }
+    });
+    setShowForm(true);
+  };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Apakah Anda yakin ingin menghapus customer ini?")) return
+    if (!confirm("Apakah Anda yakin ingin menghapus customer ini?")) return;
 
     try {
       const response = await fetch(`/api/customers?id=${id}`, {
         method: "DELETE",
-      })
-      if (!response.ok) throw new Error("Failed to delete customer")
+      });
+      if (!response.ok) throw new Error("Failed to delete customer");
       toast({
         title: "Berhasil",
         description: "Customer berhasil dihapus",
-      })
-      fetchCustomers()
+      });
+      fetchCustomers();
     } catch (error) {
-      console.error("Error deleting customer:", error)
+      console.error("Error deleting customer:", error);
       toast({
         title: "Error",
         description: "Gagal menghapus customer",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   const handleCancel = () => {
-    setShowForm(false)
-    setEditingCustomer(null)
-    setFormData({ name: "", email: "", phone_number: "" })
-  }
+    setShowForm(false);
+    setEditingCustomer(null);
+    setFormData({ name: "", email: "", phone_number: "" });
+  };
 
-  const filteredCustomers = customers.filter(
-    (customer) =>
-      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (customer.phone_number && customer.phone_number.toLowerCase().includes(searchTerm.toLowerCase())),
-  )
+  // Ensure customers is an array before filtering
+  const filteredCustomers = Array.isArray(customers)
+    ? customers.filter(
+        (customer) =>
+          customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (customer.phone_number &&
+            customer.phone_number
+              .toLowerCase()
+              .includes(searchTerm.toLowerCase())),
+      )
+    : [];
 
   if (loading) {
     return (
@@ -158,15 +182,20 @@ export default function CustomersPage() {
           <div className="h-64 bg-gray-200 rounded"></div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Customers Management</h1>
+        <h1 className="text-3xl font-bold text-gray-900">
+          Customers Management
+        </h1>
         {!showForm && (
-          <Button onClick={() => setShowForm(true)} className="bg-purple-600 hover:bg-purple-700 text-white">
+          <Button
+            onClick={() => setShowForm(true)}
+            className="bg-purple-600 hover:bg-purple-700 text-white"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Tambah Customer
           </Button>
@@ -176,7 +205,9 @@ export default function CustomersPage() {
       {showForm && (
         <Card>
           <CardHeader>
-            <CardTitle>{editingCustomer ? "Edit Customer" : "Tambah Customer Baru"}</CardTitle>
+            <CardTitle>
+              {editingCustomer ? "Edit Customer" : "Tambah Customer Baru"}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -186,7 +217,9 @@ export default function CustomersPage() {
                   <Input
                     id="name"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
                     placeholder="Masukkan nama lengkap"
                     required
                   />
@@ -198,7 +231,9 @@ export default function CustomersPage() {
                     id="email"
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
                     placeholder="Masukkan email"
                     required
                   />
@@ -209,7 +244,9 @@ export default function CustomersPage() {
                   <Input
                     id="phone_number"
                     value={formData.phone_number || ""}
-                    onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, phone_number: e.target.value })
+                    }
                     placeholder="Masukkan nomor telepon"
                   />
                 </div>
@@ -220,7 +257,10 @@ export default function CustomersPage() {
                   <X className="h-4 w-4 mr-2" />
                   Batal
                 </Button>
-                <Button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white">
+                <Button
+                  type="submit"
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                >
                   <Save className="h-4 w-4 mr-2" />
                   {editingCustomer ? "Perbarui" : "Simpan"}
                 </Button>
@@ -273,17 +313,31 @@ export default function CustomersPage() {
                       <div className="text-sm">{customer.email}</div>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm">{customer.phone_number || "-"}</div>
+                      <div className="text-sm">
+                        {customer.phone_number || "-"}
+                      </div>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm">{new Date(customer.created_at || "").toLocaleDateString("id-ID")}</div>
+                      <div className="text-sm">
+                        {new Date(customer.created_at || "").toLocaleDateString(
+                          "id-ID",
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
-                        <Button size="sm" variant="outline" onClick={() => handleEdit(customer)}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEdit(customer)}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleDelete(customer.id)}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDelete(customer.id)}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -294,8 +348,13 @@ export default function CustomersPage() {
             </Table>
           ) : (
             <div className="text-center py-8">
-              <p className="text-gray-500 mb-4">Tidak ada customers yang ditemukan</p>
-              <Button onClick={() => setShowForm(true)} className="bg-purple-600 hover:bg-purple-700 text-white">
+              <p className="text-gray-500 mb-4">
+                Tidak ada customers yang ditemukan
+              </p>
+              <Button
+                onClick={() => setShowForm(true)}
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Tambah Customer Pertama
               </Button>
@@ -304,5 +363,5 @@ export default function CustomersPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

@@ -1,66 +1,24 @@
-import { neon } from "@neondatabase/serverless"
+import { neon, neonConfig, type NeonQueryFunction } from "@neondatabase/serverless"
 
-let sqlInstance: ReturnType<typeof neon> | null = null
+// Prevent pooling in serverless environments
+neonConfig.fetchConnectionCache = false
+
+let sqlInstance: NeonQueryFunction<false, false>
 
 function getDatabase() {
   if (!sqlInstance) {
-    console.log("[v0] Debug - Environment variables check:", {
-      DATABASE_URL: process.env.DATABASE_URL ? "SET" : "NOT_SET",
-      POSTGRES_URL: process.env.POSTGRES_URL ? "SET" : "NOT_SET",
-      NEON_DATABASE_URL: process.env.NEON_DATABASE_URL ? "SET" : "NOT_SET",
-      PGHOST: process.env.PGHOST ? "SET" : "NOT_SET",
-      PGDATABASE: process.env.PGDATABASE ? "SET" : "NOT_SET",
-      PGUSER: process.env.PGUSER ? "SET" : "NOT_SET",
-      PGPASSWORD: process.env.PGPASSWORD ? "SET" : "NOT_SET",
-    })
-
-    let databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.NEON_DATABASE_URL
-
-    // If no direct DATABASE_URL, construct from Neon individual components
-    if (!databaseUrl && process.env.PGHOST) {
-      const host = process.env.PGHOST
-      const database = process.env.PGDATABASE || "neondb"
-      const user = process.env.PGUSER || "neondb_owner"
-      const password = process.env.PGPASSWORD
-      const sslmode = process.env.PGSSLMODE || "require"
-
-      if (password) {
-        databaseUrl = `postgresql://${user}:${password}@${host}/${database}?sslmode=${sslmode}`
-        console.log("[v0] Constructed database URL from Neon environment variables")
-      }
-    }
-
+    const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.NEON_DATABASE_URL
     if (!databaseUrl) {
-      console.error("[v0] No database connection string found in environment variables:", {
-        DATABASE_URL: process.env.DATABASE_URL ? "✓ Set" : "✗ Missing",
-        POSTGRES_URL: process.env.POSTGRES_URL ? "✓ Set" : "✗ Missing",
-        NEON_DATABASE_URL: process.env.NEON_DATABASE_URL ? "✓ Set" : "✗ Missing",
-        PGHOST: process.env.PGHOST ? "✓ Set" : "✗ Missing",
-        PGDATABASE: process.env.PGDATABASE ? "✓ Set" : "✗ Missing",
-        PGUSER: process.env.PGUSER ? "✓ Set" : "✗ Missing",
-        PGPASSWORD: process.env.PGPASSWORD ? "✓ Set" : "✗ Missing",
-      })
-      console.error(
-        "[v0] Please set DATABASE_URL or Neon environment variables (PGHOST, PGDATABASE, PGUSER, PGPASSWORD)",
-      )
-
-      // Return a mock function for development if no connection is available
-      return () => Promise.resolve([])
+      throw new Error("DATABASE_URL is not set")
     }
-
-    console.log("[v0] Database connection initialized successfully")
-    console.log("[v0] Using host:", process.env.PGHOST || "from DATABASE_URL")
     sqlInstance = neon(databaseUrl)
   }
   return sqlInstance
 }
 
-// Export a function that returns the sql instance
 export const getSql = () => getDatabase()
 
-// For backward compatibility, export sql function
-export const sql = ((strings: TemplateStringsArray, ...values: any[]) =>
-  getDatabase()(strings, ...values)) as ReturnType<typeof neon>
+export const sql = getDatabase()
 
 // Database types based on the existing schema
 export interface Database {
@@ -557,9 +515,10 @@ export type Updates<T extends keyof Database["public"]["Tables"]> = Database["pu
 // Database utility functions for common operations
 export class DatabaseUtils {
   static async findById<T>(table: string, id: number | string): Promise<T | null> {
+    const sql = getDatabase()
     try {
-      const result = await getSql()`SELECT * FROM ${table} WHERE id = ${id} LIMIT 1`
-      return ((result as any)[0] as T) || null
+      const result = await sql`SELECT * FROM ${sql.unsafe(table)} WHERE id = ${id} LIMIT 1`
+      return (result[0] as T) || null
     } catch (error) {
       console.error(`Error finding ${table} by id ${id}:`, error)
       return null
@@ -571,65 +530,80 @@ export class DatabaseUtils {
     conditions: Record<string, any> = {},
     orderBy?: { column: string; direction: "ASC" | "DESC" },
   ): Promise<T[]> {
+    const sql = getDatabase()
     try {
+      console.log(`DatabaseUtils.findMany called for table: ${table}`)
+      console.log("Conditions:", conditions)
+      console.log("OrderBy:", orderBy)
+
       const conditionEntries = Object.entries(conditions)
 
-      if (conditionEntries.length === 0) {
-        if (orderBy) {
-          const result = await getSql()`
-            SELECT * FROM ${table} 
-            ORDER BY ${orderBy.column} ${orderBy.direction}
-          `
-          return result as T[]
-        } else {
-          const result = await getSql()`SELECT * FROM ${table}`
+      if (conditionEntries.length === 0 && orderBy) {
+        // No conditions but with ordering - most common case for customers
+        if (table === "customers" && orderBy.column === "created_at" && orderBy.direction === "DESC") {
+          console.log("Using direct SQL query for customers with ORDER BY created_at DESC")
+          const result = await sql`SELECT * FROM customers ORDER BY created_at DESC`
+          console.log(`Query result count: ${result.length}`)
           return result as T[]
         }
-      } else {
-        let whereClause = ""
-        const conditionParts = []
 
-        for (const [key, value] of conditionEntries) {
-          conditionParts.push(`${key} = '${value}'`)
-        }
-
-        whereClause = conditionParts.join(" AND ")
-
-        if (orderBy) {
-          const result = await getSql()`
-            SELECT * FROM ${table} 
-            WHERE ${whereClause}
-            ORDER BY ${orderBy.column} ${orderBy.direction}
-          `
-          return result as T[]
-        } else {
-          const result = await getSql()`
-            SELECT * FROM ${table} 
-            WHERE ${whereClause}
-          `
-          return result as T[]
-        }
+        // Generic case with ordering
+        const result = await sql.unsafe(`SELECT * FROM ${table} ORDER BY ${orderBy.column} ${orderBy.direction}`)
+        console.log(`Query result count: ${result.length}`)
+        return result as T[]
       }
+
+      if (conditionEntries.length === 0) {
+        // No conditions, no ordering
+        console.log("Using simple SELECT * query")
+        const result = await sql.unsafe(`SELECT * FROM ${table}`)
+        console.log(`Query result count: ${result.length}`)
+        return result as T[]
+      }
+
+      // Build query with conditions
+      let baseQuery = `SELECT * FROM ${table}`
+      const values = conditionEntries.map(([, value]) => value)
+
+      if (conditionEntries.length > 0) {
+        const whereClauses = conditionEntries.map(([key], i) => `${key} = $${i + 1}`)
+        baseQuery += ` WHERE ${whereClauses.join(" AND ")}`
+      }
+
+      if (orderBy) {
+        baseQuery += ` ORDER BY ${orderBy.column} ${orderBy.direction}`
+      }
+
+      console.log(`Executing query: ${baseQuery}`)
+      console.log("Query values:", values)
+      const result = await sql.unsafe(baseQuery, values)
+      console.log(`Query result count: ${result.length}`)
+      return result as T[]
     } catch (error) {
       console.error(`Error finding ${table}:`, error)
+      console.error("Error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      })
       return []
     }
   }
 
   static async create<T>(table: string, data: Record<string, any>): Promise<T | null> {
+    const sql = getDatabase()
     try {
       const columns = Object.keys(data)
       const values = Object.values(data)
+      const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ")
 
-      const columnsList = columns.join(", ")
-      const valuesList = values.map((v) => (typeof v === "string" ? `'${v}'` : v)).join(", ")
-
-      const result = await getSql()`
-        INSERT INTO ${table} (${columnsList})
-        VALUES (${valuesList})
+      const query = `
+        INSERT INTO ${sql.unsafe(table)} (${sql.unsafe(columns.join(", "))})
+        VALUES (${placeholders})
         RETURNING *
       `
-      return ((result as any)[0] as T) || null
+      const result = await sql.unsafe(query, values)
+      return (result[0] as T) || null
     } catch (error) {
       console.error(`Error creating ${table}:`, error)
       return null
@@ -637,22 +611,20 @@ export class DatabaseUtils {
   }
 
   static async update<T>(table: string, id: number | string, data: Record<string, any>): Promise<T | null> {
+    const sql = getDatabase()
     try {
       const columns = Object.keys(data)
-      const setClause = columns
-        .map((col) => {
-          const value = data[col]
-          return `${col} = ${typeof value === "string" ? `'${value}'` : value}`
-        })
-        .join(", ")
+      const setClauses = columns.map((col, i) => `${sql.unsafe(col)} = $${i + 1}`)
+      const values = Object.values(data)
 
-      const result = await getSql()`
-        UPDATE ${table}
-        SET ${setClause}, updated_at = NOW()
-        WHERE id = ${id}
+      const query = `
+        UPDATE ${sql.unsafe(table)}
+        SET ${setClauses.join(", ")}, updated_at = NOW()
+        WHERE id = $${columns.length + 1}
         RETURNING *
       `
-      return ((result as any)[0] as T) || null
+      const result = await sql.unsafe(query, [...values, id])
+      return (result[0] as T) || null
     } catch (error) {
       console.error(`Error updating ${table}:`, error)
       return null
@@ -660,8 +632,9 @@ export class DatabaseUtils {
   }
 
   static async delete(table: string, id: number | string): Promise<boolean> {
+    const sql = getDatabase()
     try {
-      await getSql()`DELETE FROM ${table} WHERE id = ${id}`
+      await sql`DELETE FROM ${sql.unsafe(table)} WHERE id = ${id}`
       return true
     } catch (error) {
       console.error(`Error deleting from ${table}:`, error)
@@ -670,23 +643,19 @@ export class DatabaseUtils {
   }
 
   static async count(table: string, conditions: Record<string, any> = {}): Promise<number> {
+    const sql = getDatabase()
     try {
       const conditionEntries = Object.entries(conditions)
+      let query = `SELECT COUNT(*) as count FROM ${sql.unsafe(table)}`
+      const values = Object.values(conditions)
 
-      if (conditionEntries.length === 0) {
-        const result = await getSql()`SELECT COUNT(*) as count FROM ${table}`
-        return Number((result as any)[0]?.count) || 0
-      } else {
-        const conditionParts = []
-
-        for (const [key, value] of conditionEntries) {
-          conditionParts.push(`${key} = '${value}'`)
-        }
-
-        const whereClause = conditionParts.join(" AND ")
-        const result = await getSql()`SELECT COUNT(*) as count FROM ${table} WHERE ${whereClause}`
-        return Number((result as any)[0]?.count) || 0
+      if (conditionEntries.length > 0) {
+        const whereClauses = conditionEntries.map(([key], i) => `${sql.unsafe(key)} = $${i + 1}`)
+        query += ` WHERE ${whereClauses.join(" AND ")}`
       }
+
+      const result = await sql.unsafe(query, values)
+      return Number(result[0]?.count) || 0
     } catch (error) {
       console.error(`Error counting ${table}:`, error)
       return 0
@@ -741,7 +710,8 @@ export class CustomerService {
 
 export class OrderService {
   static async getAll() {
-    return getSql()`
+    const sql = getSql()
+    return sql`
       SELECT
         o.*,
         c.name as customer_name,
@@ -755,7 +725,8 @@ export class OrderService {
   }
 
   static async getById(id: number) {
-    const result = await getSql()`
+    const sql = getSql()
+    const result = await sql`
       SELECT
         o.*,
         c.name as customer_name,
@@ -808,7 +779,8 @@ export class PaymentChannelService {
   }
 
   static async getInstructions(paymentChannelId: number) {
-    return getSql()`
+    const sql = getSql()
+    return sql`
       SELECT * FROM payment_instructions
       WHERE payment_channel_id = ${paymentChannelId}
       ORDER BY step_order ASC

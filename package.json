@@ -51,6 +51,7 @@
     "cmdk": "1.0.4",
     "crypto": "latest",
     "date-fns": "4.1.0",
+    "dotenv": "latest",
     "draft-js": "latest",
     "draftjs-to-html": "latest",
     "embla-carousel-react": "8.5.1",
