@@ -558,7 +558,7 @@ export type Updates<T extends keyof Database["public"]["Tables"]> = Database["pu
 export class DatabaseUtils {
   static async findById<T>(table: string, id: number | string): Promise<T | null> {
     try {
-      const result = await getSql()`SELECT * FROM ${sql.unsafe(table)} WHERE id = ${id} LIMIT 1`
+      const result = await getSql()`SELECT * FROM ${table} WHERE id = ${id} LIMIT 1`
       return ((result as any)[0] as T) || null
     } catch (error) {
       console.error(`Error finding ${table} by id ${id}:`, error)
@@ -577,32 +577,38 @@ export class DatabaseUtils {
       if (conditionEntries.length === 0) {
         if (orderBy) {
           const result = await getSql()`
-            SELECT * FROM ${sql.unsafe(table)} 
-            ORDER BY ${sql.unsafe(orderBy.column)} ${sql.unsafe(orderBy.direction)}
+            SELECT * FROM ${table} 
+            ORDER BY ${orderBy.column} ${orderBy.direction}
           `
           return result as T[]
         } else {
-          const result = await getSql()`SELECT * FROM ${sql.unsafe(table)}`
+          const result = await getSql()`SELECT * FROM ${table}`
           return result as T[]
         }
       } else {
-        let query = `SELECT * FROM ${table} WHERE `
-        const whereConditions = []
-        const values = []
+        let whereClause = ""
+        const conditionParts = []
 
         for (const [key, value] of conditionEntries) {
-          whereConditions.push(`${key} = $${values.length + 1}`)
-          values.push(value)
+          conditionParts.push(`${key} = '${value}'`)
         }
 
-        query += whereConditions.join(" AND ")
+        whereClause = conditionParts.join(" AND ")
 
         if (orderBy) {
-          query += ` ORDER BY ${orderBy.column} ${orderBy.direction}`
+          const result = await getSql()`
+            SELECT * FROM ${table} 
+            WHERE ${whereClause}
+            ORDER BY ${orderBy.column} ${orderBy.direction}
+          `
+          return result as T[]
+        } else {
+          const result = await getSql()`
+            SELECT * FROM ${table} 
+            WHERE ${whereClause}
+          `
+          return result as T[]
         }
-
-        const result = await getSql()(query, values)
-        return result as T[]
       }
     } catch (error) {
       console.error(`Error finding ${table}:`, error)
@@ -615,14 +621,14 @@ export class DatabaseUtils {
       const columns = Object.keys(data)
       const values = Object.values(data)
 
-      const placeholders = values.map((_, index) => `$${index + 1}`).join(", ")
-      const query = `
-        INSERT INTO ${table} (${columns.join(", ")})
-        VALUES (${placeholders})
+      const columnsList = columns.join(", ")
+      const valuesList = values.map((v) => (typeof v === "string" ? `'${v}'` : v)).join(", ")
+
+      const result = await getSql()`
+        INSERT INTO ${table} (${columnsList})
+        VALUES (${valuesList})
         RETURNING *
       `
-
-      const result = await getSql()(query, values)
       return ((result as any)[0] as T) || null
     } catch (error) {
       console.error(`Error creating ${table}:`, error)
@@ -633,17 +639,19 @@ export class DatabaseUtils {
   static async update<T>(table: string, id: number | string, data: Record<string, any>): Promise<T | null> {
     try {
       const columns = Object.keys(data)
-      const values = Object.values(data)
-      const setClause = columns.map((col, index) => `${col} = $${index + 1}`).join(", ")
+      const setClause = columns
+        .map((col) => {
+          const value = data[col]
+          return `${col} = ${typeof value === "string" ? `'${value}'` : value}`
+        })
+        .join(", ")
 
-      const query = `
+      const result = await getSql()`
         UPDATE ${table}
         SET ${setClause}, updated_at = NOW()
-        WHERE id = $${values.length + 1}
+        WHERE id = ${id}
         RETURNING *
       `
-
-      const result = await getSql()(query, [...values, id])
       return ((result as any)[0] as T) || null
     } catch (error) {
       console.error(`Error updating ${table}:`, error)
@@ -653,8 +661,7 @@ export class DatabaseUtils {
 
   static async delete(table: string, id: number | string): Promise<boolean> {
     try {
-      const query = `DELETE FROM ${table} WHERE id = $1`
-      await getSql()(query, [id])
+      await getSql()`DELETE FROM ${table} WHERE id = ${id}`
       return true
     } catch (error) {
       console.error(`Error deleting from ${table}:`, error)
@@ -667,20 +674,17 @@ export class DatabaseUtils {
       const conditionEntries = Object.entries(conditions)
 
       if (conditionEntries.length === 0) {
-        const result = await getSql()`SELECT COUNT(*) as count FROM ${sql.unsafe(table)}`
+        const result = await getSql()`SELECT COUNT(*) as count FROM ${table}`
         return Number((result as any)[0]?.count) || 0
       } else {
-        let query = `SELECT COUNT(*) as count FROM ${table} WHERE `
-        const whereConditions = []
-        const values = []
+        const conditionParts = []
 
         for (const [key, value] of conditionEntries) {
-          whereConditions.push(`${key} = $${values.length + 1}`)
-          values.push(value)
+          conditionParts.push(`${key} = '${value}'`)
         }
 
-        query += whereConditions.join(" AND ")
-        const result = await getSql()(query, values)
+        const whereClause = conditionParts.join(" AND ")
+        const result = await getSql()`SELECT COUNT(*) as count FROM ${table} WHERE ${whereClause}`
         return Number((result as any)[0]?.count) || 0
       }
     } catch (error) {
