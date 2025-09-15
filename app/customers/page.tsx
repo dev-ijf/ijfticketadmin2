@@ -1,0 +1,296 @@
+"use client"
+
+import type React from "react"
+
+import { useEffect, useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table"
+import { sql, type Tables, type Inserts, type Updates } from "@/lib/database"
+import { Plus, Search, Edit, Trash2, Save, X } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { SimpleTableHeader } from "@/components/table-header"
+
+type Customer = Tables<"customers">
+type CustomerInsert = Inserts<"customers">
+type CustomerUpdate = Updates<"customers">
+
+export default function CustomersPage() {
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
+  const [showForm, setShowForm] = useState(false)
+  const [formData, setFormData] = useState<CustomerInsert>({
+    name: "",
+    email: "",
+    phone_number: "",
+  })
+  const { toast } = useToast()
+
+  useEffect(() => {
+    fetchCustomers()
+  }, [])
+
+  const fetchCustomers = async () => {
+    try {
+      const data = await sql`
+        SELECT * FROM customers 
+        ORDER BY created_at DESC
+      `
+      setCustomers(data as Customer[])
+    } catch (error) {
+      console.error("Error fetching customers:", error)
+      toast({
+        title: "Error",
+        description: "Gagal memuat data customers",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    try {
+      if (editingCustomer) {
+        await sql`
+          UPDATE customers 
+          SET name = ${formData.name}, 
+              email = ${formData.email}, 
+              phone_number = ${formData.phone_number},
+              updated_at = NOW()
+          WHERE id = ${editingCustomer.id}
+        `
+        toast({
+          title: "Berhasil",
+          description: "Customer berhasil diperbarui",
+        })
+      } else {
+        await sql`
+          INSERT INTO customers (name, email, phone_number, created_at, updated_at)
+          VALUES (${formData.name}, ${formData.email}, ${formData.phone_number}, NOW(), NOW())
+        `
+        toast({
+          title: "Berhasil",
+          description: "Customer berhasil ditambahkan",
+        })
+      }
+
+      setShowForm(false)
+      setEditingCustomer(null)
+      setFormData({ name: "", email: "", phone_number: "" })
+      fetchCustomers()
+    } catch (error) {
+      console.error("Error saving customer:", error)
+      toast({
+        title: "Error",
+        description: "Gagal menyimpan customer",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleEdit = (customer: Customer) => {
+    setEditingCustomer(customer)
+    setFormData({
+      name: customer.name,
+      email: customer.email,
+      phone_number: customer.phone_number,
+    })
+    setShowForm(true)
+  }
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Apakah Anda yakin ingin menghapus customer ini?")) return
+
+    try {
+      await sql`DELETE FROM customers WHERE id = ${id}`
+      toast({
+        title: "Berhasil",
+        description: "Customer berhasil dihapus",
+      })
+      fetchCustomers()
+    } catch (error) {
+      console.error("Error deleting customer:", error)
+      toast({
+        title: "Error",
+        description: "Gagal menghapus customer",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleCancel = () => {
+    setShowForm(false)
+    setEditingCustomer(null)
+    setFormData({ name: "", email: "", phone_number: "" })
+  }
+
+  const filteredCustomers = customers.filter(
+    (customer) =>
+      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (customer.phone_number && customer.phone_number.toLowerCase().includes(searchTerm.toLowerCase())),
+  )
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+          <div className="h-64 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold text-gray-900">Customers Management</h1>
+        {!showForm && (
+          <Button onClick={() => setShowForm(true)} className="bg-purple-600 hover:bg-purple-700 text-white">
+            <Plus className="h-4 w-4 mr-2" />
+            Tambah Customer
+          </Button>
+        )}
+      </div>
+
+      {showForm && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{editingCustomer ? "Edit Customer" : "Tambah Customer Baru"}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nama Lengkap</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Masukkan nama lengkap"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="Masukkan email"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phone_number">Nomor Telepon</Label>
+                  <Input
+                    id="phone_number"
+                    value={formData.phone_number || ""}
+                    onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+                    placeholder="Masukkan nomor telepon"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={handleCancel}>
+                  <X className="h-4 w-4 mr-2" />
+                  Batal
+                </Button>
+                <Button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white">
+                  <Save className="h-4 w-4 mr-2" />
+                  {editingCustomer ? "Perbarui" : "Simpan"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Filter & Search</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Cari berdasarkan nama, email, atau nomor telepon..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Daftar Customers ({filteredCustomers.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {filteredCustomers.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <SimpleTableHeader>Nama</SimpleTableHeader>
+                  <SimpleTableHeader>Email</SimpleTableHeader>
+                  <SimpleTableHeader>Nomor Telepon</SimpleTableHeader>
+                  <SimpleTableHeader>Tanggal Daftar</SimpleTableHeader>
+                  <SimpleTableHeader>Aksi</SimpleTableHeader>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCustomers.map((customer) => (
+                  <TableRow key={customer.id}>
+                    <TableCell>
+                      <div className="font-medium">{customer.name}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">{customer.email}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">{customer.phone_number || "-"}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">{new Date(customer.created_at || "").toLocaleDateString("id-ID")}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex space-x-2">
+                        <Button size="sm" variant="outline" onClick={() => handleEdit(customer)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleDelete(customer.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-500 mb-4">Tidak ada customers yang ditemukan</p>
+              <Button onClick={() => setShowForm(true)} className="bg-purple-600 hover:bg-purple-700 text-white">
+                <Plus className="h-4 w-4 mr-2" />
+                Tambah Customer Pertama
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
