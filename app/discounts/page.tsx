@@ -1,57 +1,75 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useEffect, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { Plus, Edit, Trash2, Search } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import { SimpleTableHeader } from "@/components/table-header"
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Edit, Trash2, Search } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { SimpleTableHeader } from "@/components/table-header";
 
 type Discount = {
-  id: number
-  code: string
-  description: string | null
-  discount_type: "percentage" | "fixed_amount"
-  value: number
-  valid_until: string | null
-  minimum_amount: number | null
-  max_discount_amount: number | null
-  usage_limit: number | null
-  usage_count: number
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
+  id: number;
+  code: string;
+  description: string | null;
+  discount_type: "percentage" | "fixed_amount";
+  value: number;
+  valid_until: string | null;
+  minimum_amount: number | null;
+  max_discount_amount: number | null;
+  usage_limit: number | null;
+  usage_count: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
 
 type DiscountInsert = {
-  code: string
-  description: string
-  discount_type: "percentage" | "fixed_amount"
-  value: number
-  valid_until: string
-  minimum_amount: number
-  max_discount_amount: number
-  usage_limit: number
-  usage_count: number
-  is_active: boolean
-}
+  code: string;
+  description: string;
+  discount_type: "percentage" | "fixed_amount";
+  value: number;
+  valid_until: string;
+  minimum_amount: number;
+  max_discount_amount: number;
+  usage_limit: number;
+  usage_count: number;
+  is_active: boolean;
+};
 
 export default function DiscountsPage() {
-  const [discounts, setDiscounts] = useState<Discount[]>([])
-  const [loading, setLoading] = useState(true)
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [editingDiscount, setEditingDiscount] = useState<Discount | null>(null)
-  const [searchTerm, setSearchTerm] = useState("")
+  const [discounts, setDiscounts] = useState<Discount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingDiscount, setEditingDiscount] = useState<Discount | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const [formData, setFormData] = useState<DiscountInsert>({
     code: "",
     description: "",
@@ -63,33 +81,45 @@ export default function DiscountsPage() {
     usage_limit: 0,
     usage_count: 0,
     is_active: true,
-  })
-  const { toast } = useToast()
+  });
+  const { toast } = useToast();
 
   useEffect(() => {
-    fetchDiscounts()
-  }, [])
+    fetchDiscounts();
+  }, []);
 
   const fetchDiscounts = async () => {
     try {
-      const response = await fetch("/api/discounts")
-      if (!response.ok) throw new Error("Failed to fetch discounts")
-      const data = await response.json()
-      setDiscounts(data)
+      const response = await fetch("/api/discounts");
+      if (!response.ok) throw new Error("Failed to fetch discounts");
+      const data = await response.json();
+      // Ensure data is an array
+      if (Array.isArray(data)) {
+        setDiscounts(data);
+      } else {
+        console.error("Invalid data format received:", data);
+        setDiscounts([]);
+        toast({
+          title: "Warning",
+          description: "Data format tidak valid, menampilkan data kosong",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
-      console.error("Error fetching discounts:", error)
+      console.error("Error fetching discounts:", error);
+      setDiscounts([]); // Reset to empty array on error
       toast({
         title: "Error",
         description: "Gagal memuat data discounts",
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     try {
       if (editingDiscount) {
@@ -97,27 +127,27 @@ export default function DiscountsPage() {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id: editingDiscount.id, ...formData }),
-        })
-        if (!response.ok) throw new Error("Failed to update discount")
+        });
+        if (!response.ok) throw new Error("Failed to update discount");
         toast({
           title: "Berhasil",
           description: "Discount berhasil diperbarui",
-        })
+        });
       } else {
         const response = await fetch("/api/discounts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(formData),
-        })
-        if (!response.ok) throw new Error("Failed to create discount")
+        });
+        if (!response.ok) throw new Error("Failed to create discount");
         toast({
           title: "Berhasil",
           description: "Discount berhasil ditambahkan",
-        })
+        });
       }
 
-      setDialogOpen(false)
-      setEditingDiscount(null)
+      setDialogOpen(false);
+      setEditingDiscount(null);
       setFormData({
         code: "",
         description: "",
@@ -129,64 +159,66 @@ export default function DiscountsPage() {
         usage_limit: 0,
         usage_count: 0,
         is_active: true,
-      })
-      fetchDiscounts()
+      });
+      fetchDiscounts();
     } catch (error) {
-      console.error("Error saving discount:", error)
+      console.error("Error saving discount:", error);
       toast({
         title: "Error",
         description: "Gagal menyimpan discount",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   const handleEdit = (discount: Discount) => {
-    setEditingDiscount(discount)
+    setEditingDiscount(discount);
     setFormData({
       code: discount.code,
       description: discount.description || "",
       discount_type: discount.discount_type,
       value: Number(discount.value),
-      valid_until: discount.valid_until ? new Date(discount.valid_until).toISOString().slice(0, 16) : "",
+      valid_until: discount.valid_until
+        ? new Date(discount.valid_until).toISOString().slice(0, 16)
+        : "",
       minimum_amount: Number(discount.minimum_amount) || 0,
       max_discount_amount: Number(discount.max_discount_amount) || 0,
       usage_limit: discount.usage_limit || 0,
       usage_count: discount.usage_count,
       is_active: discount.is_active,
-    })
-    setDialogOpen(true)
-  }
+    });
+    setDialogOpen(true);
+  };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Apakah Anda yakin ingin menghapus discount ini?")) return
+    if (!confirm("Apakah Anda yakin ingin menghapus discount ini?")) return;
 
     try {
       const response = await fetch(`/api/discounts?id=${id}`, {
         method: "DELETE",
-      })
-      if (!response.ok) throw new Error("Failed to delete discount")
+      });
+      if (!response.ok) throw new Error("Failed to delete discount");
       toast({
         title: "Berhasil",
         description: "Discount berhasil dihapus",
-      })
-      fetchDiscounts()
+      });
+      fetchDiscounts();
     } catch (error) {
-      console.error("Error deleting discount:", error)
+      console.error("Error deleting discount:", error);
       toast({
         title: "Error",
         description: "Gagal menghapus discount",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
-    }).format(amount)
-  }
+    }).format(amount);
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("id-ID", {
@@ -195,14 +227,20 @@ export default function DiscountsPage() {
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-    })
-  }
+    });
+  };
 
-  const filteredDiscounts = discounts.filter(
-    (discount) =>
-      discount.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (discount.description && discount.description.toLowerCase().includes(searchTerm.toLowerCase())),
-  )
+  // Ensure discounts is an array before filtering
+  const filteredDiscounts = Array.isArray(discounts)
+    ? discounts.filter(
+        (discount) =>
+          discount.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (discount.description &&
+            discount.description
+              .toLowerCase()
+              .includes(searchTerm.toLowerCase())),
+      )
+    : [];
 
   if (loading) {
     return (
@@ -220,7 +258,7 @@ export default function DiscountsPage() {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   return (
@@ -236,7 +274,9 @@ export default function DiscountsPage() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>{editingDiscount ? "Edit Discount" : "Tambah Discount Baru"}</DialogTitle>
+              <DialogTitle>
+                {editingDiscount ? "Edit Discount" : "Tambah Discount Baru"}
+              </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -245,7 +285,12 @@ export default function DiscountsPage() {
                   <Input
                     id="code"
                     value={formData.code}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        code: e.target.value.toUpperCase(),
+                      })
+                    }
                     required
                   />
                 </div>
@@ -262,7 +307,9 @@ export default function DiscountsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="percentage">Persentase (%)</SelectItem>
-                      <SelectItem value="fixed_amount">Nominal Tetap (Rp)</SelectItem>
+                      <SelectItem value="fixed_amount">
+                        Nominal Tetap (Rp)
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -270,12 +317,20 @@ export default function DiscountsPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="value">Nilai {formData.discount_type === "percentage" ? "(%)" : "(Rp)"}</Label>
+                  <Label htmlFor="value">
+                    Nilai{" "}
+                    {formData.discount_type === "percentage" ? "(%)" : "(Rp)"}
+                  </Label>
                   <Input
                     id="value"
                     type="number"
                     value={formData.value}
-                    onChange={(e) => setFormData({ ...formData, value: Number(e.target.value) })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        value: Number(e.target.value),
+                      })
+                    }
                     required
                   />
                 </div>
@@ -285,7 +340,9 @@ export default function DiscountsPage() {
                     id="valid_until"
                     type="datetime-local"
                     value={formData.valid_until}
-                    onChange={(e) => setFormData({ ...formData, valid_until: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, valid_until: e.target.value })
+                    }
                   />
                 </div>
               </div>
@@ -297,16 +354,28 @@ export default function DiscountsPage() {
                     id="minimum_amount"
                     type="number"
                     value={formData.minimum_amount}
-                    onChange={(e) => setFormData({ ...formData, minimum_amount: Number(e.target.value) })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        minimum_amount: Number(e.target.value),
+                      })
+                    }
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="max_discount_amount">Maksimal Discount (Rp)</Label>
+                  <Label htmlFor="max_discount_amount">
+                    Maksimal Discount (Rp)
+                  </Label>
                   <Input
                     id="max_discount_amount"
                     type="number"
                     value={formData.max_discount_amount}
-                    onChange={(e) => setFormData({ ...formData, max_discount_amount: Number(e.target.value) })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        max_discount_amount: Number(e.target.value),
+                      })
+                    }
                   />
                 </div>
               </div>
@@ -318,14 +387,21 @@ export default function DiscountsPage() {
                     id="usage_limit"
                     type="number"
                     value={formData.usage_limit}
-                    onChange={(e) => setFormData({ ...formData, usage_limit: Number(e.target.value) })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        usage_limit: Number(e.target.value),
+                      })
+                    }
                   />
                 </div>
                 <div className="flex items-center space-x-2 pt-6">
                   <Switch
                     id="is_active"
                     checked={formData.is_active}
-                    onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                    onCheckedChange={(checked) =>
+                      setFormData({ ...formData, is_active: checked })
+                    }
                   />
                   <Label htmlFor="is_active">Aktif</Label>
                 </div>
@@ -336,7 +412,9 @@ export default function DiscountsPage() {
                 <Textarea
                   id="description"
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
                   rows={3}
                 />
               </div>
@@ -346,8 +424,8 @@ export default function DiscountsPage() {
                   type="button"
                   variant="outline"
                   onClick={() => {
-                    setDialogOpen(false)
-                    setEditingDiscount(null)
+                    setDialogOpen(false);
+                    setEditingDiscount(null);
                     setFormData({
                       code: "",
                       description: "",
@@ -359,12 +437,15 @@ export default function DiscountsPage() {
                       usage_limit: 0,
                       usage_count: 0,
                       is_active: true,
-                    })
+                    });
                   }}
                 >
                   Batal
                 </Button>
-                <Button type="submit" className="bg-purple-600 hover:bg-purple-700">
+                <Button
+                  type="submit"
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
                   {editingDiscount ? "Perbarui" : "Simpan"}
                 </Button>
               </div>
@@ -412,14 +493,22 @@ export default function DiscountsPage() {
                 <TableRow key={discount.id}>
                   <TableCell>
                     <div>
-                      <div className="font-mono font-medium">{discount.code}</div>
-                      {discount.description && <div className="text-sm text-gray-500">{discount.description}</div>}
+                      <div className="font-mono font-medium">
+                        {discount.code}
+                      </div>
+                      {discount.description && (
+                        <div className="text-sm text-gray-500">
+                          {discount.description}
+                        </div>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
                     <div>
                       <Badge variant="outline">
-                        {discount.discount_type === "percentage" ? "Persentase" : "Nominal"}
+                        {discount.discount_type === "percentage"
+                          ? "Persentase"
+                          : "Nominal"}
                       </Badge>
                       <div className="font-medium mt-1">
                         {discount.discount_type === "percentage"
@@ -430,9 +519,16 @@ export default function DiscountsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="text-sm space-y-1">
-                      {discount.minimum_amount && <div>Min: {formatCurrency(Number(discount.minimum_amount))}</div>}
+                      {discount.minimum_amount && (
+                        <div>
+                          Min: {formatCurrency(Number(discount.minimum_amount))}
+                        </div>
+                      )}
                       {discount.max_discount_amount && (
-                        <div>Max: {formatCurrency(Number(discount.max_discount_amount))}</div>
+                        <div>
+                          Max:{" "}
+                          {formatCurrency(Number(discount.max_discount_amount))}
+                        </div>
                       )}
                     </div>
                   </TableCell>
@@ -442,26 +538,40 @@ export default function DiscountsPage() {
                         {discount.usage_count} / {discount.usage_limit || "∞"}
                       </div>
                       {discount.usage_limit && (
-                        <div className="text-xs text-gray-500">Sisa: {discount.usage_limit - discount.usage_count}</div>
+                        <div className="text-xs text-gray-500">
+                          Sisa: {discount.usage_limit - discount.usage_count}
+                        </div>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="text-sm">
-                      {discount.valid_until ? formatDate(discount.valid_until) : "Tidak terbatas"}
+                      {discount.valid_until
+                        ? formatDate(discount.valid_until)
+                        : "Tidak terbatas"}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={discount.is_active ? "default" : "destructive"}>
+                    <Badge
+                      variant={discount.is_active ? "default" : "destructive"}
+                    >
                       {discount.is_active ? "Aktif" : "Nonaktif"}
                     </Badge>
                   </TableCell>
                   <TableCell>
                     <div className="flex space-x-2">
-                      <Button size="sm" variant="outline" onClick={() => handleEdit(discount)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEdit(discount)}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleDelete(discount.id)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDelete(discount.id)}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -473,5 +583,5 @@ export default function DiscountsPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
