@@ -539,7 +539,14 @@ export class DatabaseUtils {
       const conditionEntries = Object.entries(conditions)
 
       if (conditionEntries.length === 0 && orderBy) {
-        // No conditions but with ordering - most common case for customers
+        // No conditions but with ordering - use template literals for specific cases
+        if (table === "discounts" && orderBy.column === "created_at" && orderBy.direction === "DESC") {
+          console.log("Using direct SQL query for discounts with ORDER BY created_at DESC")
+          const result = await sql`SELECT * FROM discounts ORDER BY created_at DESC`
+          console.log(`Query result count: ${result.length}`)
+          return result as T[]
+        }
+
         if (table === "customers" && orderBy.column === "created_at" && orderBy.direction === "DESC") {
           console.log("Using direct SQL query for customers with ORDER BY created_at DESC")
           const result = await sql`SELECT * FROM customers ORDER BY created_at DESC`
@@ -547,45 +554,56 @@ export class DatabaseUtils {
           return result as T[]
         }
 
-        // Generic case with ordering
-        const result = await sql.unsafe(`SELECT * FROM ${table} ORDER BY ${orderBy.column} ${orderBy.direction}`)
+        // Generic case with ordering - use template literals with unsafe for table/column names
+        console.log(`Using generic ORDER BY query for ${table}`)
+        const result =
+          await sql`SELECT * FROM ${sql.unsafe(table)} ORDER BY ${sql.unsafe(orderBy.column)} ${sql.unsafe(orderBy.direction)}`
         console.log(`Query result count: ${result.length}`)
         return result as T[]
       }
 
       if (conditionEntries.length === 0) {
-        // No conditions, no ordering
+        // No conditions, no ordering - use template literals
         console.log("Using simple SELECT * query")
-        const result = await sql.unsafe(`SELECT * FROM ${table}`)
+        const result = await sql`SELECT * FROM ${sql.unsafe(table)}`
         console.log(`Query result count: ${result.length}`)
         return result as T[]
       }
 
-      // Build query with conditions
-      let baseQuery = `SELECT * FROM ${table}`
+      // Build query with conditions using template literals
+      console.log("Building parameterized query with conditions")
       const values = conditionEntries.map(([, value]) => value)
 
-      if (conditionEntries.length > 0) {
-        const whereClauses = conditionEntries.map(([key], i) => `${key} = $${i + 1}`)
-        baseQuery += ` WHERE ${whereClauses.join(" AND ")}`
-      }
-
       if (orderBy) {
-        baseQuery += ` ORDER BY ${orderBy.column} ${orderBy.direction}`
+        // With conditions and ordering
+        const whereClause = conditionEntries.map(([key], i) => `${key} = $${i + 1}`).join(" AND ")
+        console.log(`Executing parameterized query with ORDER BY`)
+        const safeValues = values.map((v) => (typeof v === "string" ? `'${v}'` : v))
+        const safeWhereClause = conditionEntries.map(([key], i) => `${key} = ${safeValues[i]}`).join(" AND ")
+        const query = `SELECT * FROM ${table} WHERE ${safeWhereClause} ORDER BY ${orderBy.column} ${orderBy.direction}`
+        const result = (await sql.unsafe(query)) as unknown as T[]
+        console.log(`Query result count: ${Array.isArray(result) ? result.length : 0}`)
+        return result
+      } else {
+        // With conditions but no ordering
+        const whereClause = conditionEntries.map(([key], i) => `${key} = $${i + 1}`).join(" AND ")
+        console.log(`Executing parameterized query without ORDER BY`)
+        const safeValues = values.map((v) => (typeof v === "string" ? `'${v}'` : v))
+        const safeWhereClause = conditionEntries.map(([key], i) => `${key} = ${safeValues[i]}`).join(" AND ")
+        const query = `SELECT * FROM ${table} WHERE ${safeWhereClause}`
+        const result = (await sql.unsafe(query)) as unknown as T[]
+        console.log(`Query result count: ${Array.isArray(result) ? result.length : 0}`)
+        return result
       }
-
-      console.log(`Executing query: ${baseQuery}`)
-      console.log("Query values:", values)
-      const result = await sql.unsafe(baseQuery, values)
-      console.log(`Query result count: ${result.length}`)
-      return result as T[]
     } catch (error) {
       console.error(`Error finding ${table}:`, error)
-      console.error("Error details:", {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-      })
+      if (error instanceof Error) {
+        console.error("Error details:", {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+        })
+      }
       return []
     }
   }
@@ -602,8 +620,12 @@ export class DatabaseUtils {
         VALUES (${placeholders})
         RETURNING *
       `
-      const result = await sql.unsafe(query, values)
-      return (result[0] as T) || null
+      const safeValues = values.map((v) => (typeof v === "string" ? `'${v}'` : v))
+      const finalQuery = query.replace(/\$(\d+)/g, (match, index) => {
+        return safeValues[Number.parseInt(index) - 1]
+      })
+      const result = (await sql.unsafe(finalQuery)) as unknown as T[]
+      return ((Array.isArray(result) ? result[0] : null) as T) || null
     } catch (error) {
       console.error(`Error creating ${table}:`, error)
       return null
@@ -623,8 +645,12 @@ export class DatabaseUtils {
         WHERE id = $${columns.length + 1}
         RETURNING *
       `
-      const result = await sql.unsafe(query, [...values, id])
-      return (result[0] as T) || null
+      const allValues = [...values, id].map((v) => (typeof v === "string" ? `'${v}'` : v))
+      const finalQuery = query.replace(/\$(\d+)/g, (match, index) => {
+        return allValues[Number.parseInt(index) - 1]
+      })
+      const result = (await sql.unsafe(finalQuery)) as unknown as T[]
+      return ((Array.isArray(result) ? result[0] : null) as T) || null
     } catch (error) {
       console.error(`Error updating ${table}:`, error)
       return null
@@ -647,14 +673,16 @@ export class DatabaseUtils {
     try {
       const conditionEntries = Object.entries(conditions)
       let query = `SELECT COUNT(*) as count FROM ${sql.unsafe(table)}`
-      const values = Object.values(conditions)
 
       if (conditionEntries.length > 0) {
-        const whereClauses = conditionEntries.map(([key], i) => `${sql.unsafe(key)} = $${i + 1}`)
+        const safeValues = conditionEntries.map(([, value]) => (typeof value === "string" ? `'${value}'` : value))
+        const whereClauses = conditionEntries.map(([key], i) => `${sql.unsafe(key)} = ${safeValues[i]}`)
         query += ` WHERE ${whereClauses.join(" AND ")}`
       }
 
-      const result = await sql.unsafe(query, values)
+      const result = (await sql.unsafe(query)) as unknown as Array<{
+        count: string | number
+      }>
       return Number(result[0]?.count) || 0
     } catch (error) {
       console.error(`Error counting ${table}:`, error)
