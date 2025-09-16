@@ -1,29 +1,39 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { supabase } from "@/lib/supabase"
-import { ArrowLeft, Save } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import type { Database } from "@/lib/supabase"
-import { ImageUpload } from "@/components/image-upload"
-import dynamic from "next/dynamic"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, Save } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { ImageUpload } from "@/components/image-upload";
+import dynamic from "next/dynamic";
 
-const RichTextEditor = dynamic(() => import("@/components/rich-text-editor").then((mod) => mod.RichTextEditor), {
-  ssr: false,
-})
+const RichTextEditor = dynamic(
+  () =>
+    import("@/components/rich-text-editor").then((mod) => mod.RichTextEditor),
+  {
+    ssr: false,
+  },
+);
 
-type EventInsert = Database["public"]["Tables"]["events"]["Insert"]
+type EventInsert = {
+  name: string;
+  slug: string;
+  start_date: string | null;
+  end_date: string | null;
+  location: string | null;
+  description: string | null;
+  image_url: string | null;
+};
 
 export default function CreateEventPage() {
-  const router = useRouter()
-  const [loading, setLoading] = useState(false)
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<EventInsert>({
     name: "",
     slug: "",
@@ -32,48 +42,58 @@ export default function CreateEventPage() {
     location: "",
     description: "",
     image_url: "",
-  })
-  const { toast } = useToast()
+  });
+  const { toast } = useToast();
 
   const clearRedis = async () => {
     try {
-      await fetch('/api/clear-redis', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'events' }),
-      })
+      await fetch("/api/clear-redis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "events" }),
+      });
     } catch (e) {
       // Optional: bisa tambahkan toast error jika perlu
     }
-  }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
+    e.preventDefault();
+    setLoading(true);
 
     try {
-      const { data, error } = await supabase.from("events").insert([formData]).select().single()
+      const response = await fetch("/api/events", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
 
-      if (error) throw error
+      if (!response.ok) {
+        throw new Error("Failed to create event");
+      }
+
+      const data = await response.json();
 
       toast({
         title: "Berhasil",
         description: "Event berhasil dibuat",
-      })
-      await clearRedis()
+      });
+      await clearRedis();
 
-      router.push(`/events/${data.id}`)
+      router.push(`/events/${data.id}`);
     } catch (error) {
-      console.error("Error creating event:", error)
+      console.error("Error creating event:", error);
       toast({
         title: "Error",
         description: "Gagal membuat event",
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const generateSlug = (name: string) => {
     return name
@@ -81,8 +101,8 @@ export default function CreateEventPage() {
       .replace(/[^a-z0-9\s-]/g, "")
       .replace(/\s+/g, "-")
       .replace(/-+/g, "-")
-      .trim()
-  }
+      .trim();
+  };
 
   return (
     <div className="space-y-6">
@@ -107,12 +127,12 @@ export default function CreateEventPage() {
                   id="name"
                   value={formData.name}
                   onChange={(e) => {
-                    const name = e.target.value
+                    const name = e.target.value;
                     setFormData({
                       ...formData,
                       name,
                       slug: generateSlug(name),
-                    })
+                    });
                   }}
                   required
                 />
@@ -122,7 +142,9 @@ export default function CreateEventPage() {
                 <Input
                   id="slug"
                   value={formData.slug}
-                  onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, slug: e.target.value })
+                  }
                   required
                 />
               </div>
@@ -135,7 +157,9 @@ export default function CreateEventPage() {
                   id="start_date"
                   type="datetime-local"
                   value={formData.start_date}
-                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, start_date: e.target.value })
+                  }
                 />
               </div>
               <div className="space-y-2">
@@ -144,7 +168,9 @@ export default function CreateEventPage() {
                   id="end_date"
                   type="datetime-local"
                   value={formData.end_date}
-                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, end_date: e.target.value })
+                  }
                 />
               </div>
             </div>
@@ -154,7 +180,9 @@ export default function CreateEventPage() {
               <Input
                 id="location"
                 value={formData.location || ""}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, location: e.target.value })
+                }
               />
             </div>
 
@@ -170,16 +198,26 @@ export default function CreateEventPage() {
 
             <RichTextEditor
               value={formData.description || ""}
-              onChange={(value) => setFormData({ ...formData, description: value })}
+              onChange={(value) =>
+                setFormData({ ...formData, description: value })
+              }
               label="Deskripsi Event"
               placeholder="Masukkan deskripsi event..."
             />
 
             <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={() => router.back()}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.back()}
+              >
                 Batal
               </Button>
-              <Button type="submit" className="bg-purple-600 hover:bg-purple-700" disabled={loading}>
+              <Button
+                type="submit"
+                className="bg-purple-600 hover:bg-purple-700"
+                disabled={loading}
+              >
                 <Save className="h-4 w-4 mr-2" />
                 {loading ? "Menyimpan..." : "Simpan Event"}
               </Button>
@@ -188,5 +226,5 @@ export default function CreateEventPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

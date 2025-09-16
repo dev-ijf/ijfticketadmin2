@@ -1,88 +1,132 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Plus, Edit, Eye, Calendar, MapPin, Search, Ticket } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import { SimpleTableHeader } from "@/components/table-header"
-import Link from "next/link"
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Plus,
+  Edit,
+  Eye,
+  Calendar,
+  MapPin,
+  Search,
+  Ticket,
+  Trash2,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { SimpleTableHeader } from "@/components/table-header";
+import Link from "next/link";
 
 type TicketType = {
-  id: number
-  name: string
-  price: number
-  quantity_total: number
-  quantity_sold: number
-}
+  id: number;
+  name: string;
+  price: number;
+  quantity_total: number;
+  quantity_sold: number;
+};
 
 type Event = {
-  id: number
-  name: string
-  slug: string
-  start_date: string | null
-  end_date: string | null
-  location: string | null
-  ticket_types: TicketType[]
-}
+  id: number;
+  name: string;
+  slug: string;
+  start_date: string | null;
+  end_date: string | null;
+  location: string | null;
+  ticket_types: TicketType[];
+};
 
 async function fetchEvents(): Promise<Event[]> {
   try {
-    const response = await fetch("/api/events")
+    const response = await fetch("/api/events");
     if (!response.ok) {
-      throw new Error("Failed to fetch events")
+      throw new Error("Failed to fetch events");
     }
-    return await response.json()
+    return await response.json();
   } catch (error) {
-    console.error("Error fetching events:", error)
-    return []
+    console.error("Error fetching events:", error);
+    return [];
   }
 }
 
 export default function EventsPage() {
-  const [events, setEvents] = useState<Event[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const { toast } = useToast()
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const { toast } = useToast();
 
   useEffect(() => {
     const loadEvents = async () => {
-      const eventsData = await fetchEvents()
-      if (eventsData.length === 0) {
-        toast({
-          title: "Error",
-          description: "Gagal memuat data events",
-          variant: "destructive",
-        })
-      }
-      setEvents(eventsData)
-      setLoading(false)
+      const eventsData = await fetchEvents();
+      setEvents(eventsData);
+      setLoading(false);
+    };
+    loadEvents();
+  }, []);
+
+  const handleDelete = async (eventId: number) => {
+    if (
+      !confirm(
+        "Are you sure you want to delete this event and all related data?",
+      )
+    ) {
+      return;
     }
-    loadEvents()
-  }, [toast])
+
+    try {
+      const response = await fetch("/api/events", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id: eventId }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete event");
+      }
+
+      toast({ title: "Success", description: "Event deleted successfully" });
+      const updatedEvents = events.filter((event) => event.id !== eventId);
+      setEvents(updatedEvents);
+    } catch (error) {
+      console.error("Error deleting event:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete event",
+        variant: "destructive",
+      });
+    }
+  };
 
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return "-"
-    const date = new Date(dateString)
-    return `${date.getUTCDate()} ${date.toLocaleString("id-ID", { month: "long", timeZone: "UTC" })} ${date.getUTCFullYear()} pukul ${date.getUTCHours().toString().padStart(2, "0")}.${date.getUTCMinutes().toString().padStart(2, "0")}`
-  }
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    return `${date.getUTCDate()} ${date.toLocaleString("id-ID", { month: "long", timeZone: "UTC" })} ${date.getUTCFullYear()} pukul ${date.getUTCHours().toString().padStart(2, "0")}.${date.getUTCMinutes().toString().padStart(2, "0")}`;
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
-    }).format(amount)
-  }
+    }).format(amount);
+  };
 
   const filteredEvents = events.filter(
     (event) =>
       event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       event.slug.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (event.location && event.location.toLowerCase().includes(searchTerm.toLowerCase())),
-  )
+      (event.location &&
+        event.location.toLowerCase().includes(searchTerm.toLowerCase())),
+  );
 
   if (loading) {
     return (
@@ -100,7 +144,7 @@ export default function EventsPage() {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   return (
@@ -162,7 +206,11 @@ export default function EventsPage() {
                       <Calendar className="h-4 w-4 text-gray-400" />
                       <div className="text-sm">
                         <div>{formatDate(event.start_date)}</div>
-                        {event.end_date && <div className="text-gray-500">s/d {formatDate(event.end_date)}</div>}
+                        {event.end_date && (
+                          <div className="text-gray-500">
+                            s/d {formatDate(event.end_date)}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </TableCell>
@@ -179,29 +227,36 @@ export default function EventsPage() {
                           <div key={ticketType.id} className="text-sm">
                             <div className="font-medium">{ticketType.name}</div>
                             <div className="text-gray-500">
-                              {formatCurrency(Number(ticketType.price))} • {ticketType.quantity_sold}/
+                              {formatCurrency(Number(ticketType.price))} •{" "}
+                              {ticketType.quantity_sold}/
                               {ticketType.quantity_total}
                             </div>
                           </div>
                         ))
                       ) : (
-                        <div className="text-sm text-gray-500">Belum ada ticket type</div>
+                        <div className="text-sm text-gray-500">
+                          Belum ada ticket type
+                        </div>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
                     <Badge
                       variant={
-                        event.start_date && new Date(event.start_date) > new Date()
+                        event.start_date &&
+                        new Date(event.start_date) > new Date()
                           ? "default"
-                          : event.end_date && new Date(event.end_date) < new Date()
+                          : event.end_date &&
+                              new Date(event.end_date) < new Date()
                             ? "secondary"
                             : "destructive"
                       }
                     >
-                      {event.start_date && new Date(event.start_date) > new Date()
+                      {event.start_date &&
+                      new Date(event.start_date) > new Date()
                         ? "Upcoming"
-                        : event.end_date && new Date(event.end_date) < new Date()
+                        : event.end_date &&
+                            new Date(event.end_date) < new Date()
                           ? "Finished"
                           : "Active"}
                     </Badge>
@@ -223,6 +278,13 @@ export default function EventsPage() {
                           <Ticket className="h-4 w-4" />
                         </Button>
                       </Link>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDelete(event.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -232,5 +294,5 @@ export default function EventsPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

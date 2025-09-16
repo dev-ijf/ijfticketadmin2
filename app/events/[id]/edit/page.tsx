@@ -1,28 +1,33 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { supabase } from "@/lib/supabase"
-import { ArrowLeft, Save } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import type { Database } from "@/lib/supabase"
-import { ImageUpload } from "@/components/image-upload"
-import { RichTextEditor } from "@/components/rich-text-editor"
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, Save } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { ImageUpload } from "@/components/image-upload";
+import { RichTextEditor } from "@/components/rich-text-editor";
 
-type Event = Database["public"]["Tables"]["events"]["Row"]
-type EventUpdate = Database["public"]["Tables"]["events"]["Update"]
+type EventUpdate = {
+  name: string;
+  slug: string;
+  start_date: string | null;
+  end_date: string | null;
+  location: string | null;
+  description: string | null;
+  image_url: string | null;
+};
 
 export default function EditEventPage() {
-  const params = useParams()
-  const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const params = useParams();
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<EventUpdate>({
     name: "",
     slug: "",
@@ -31,80 +36,90 @@ export default function EditEventPage() {
     location: "",
     description: "",
     image_url: "",
-  })
-  const { toast } = useToast()
+  });
+  const { toast } = useToast();
 
   useEffect(() => {
     if (params.id) {
-      fetchEvent()
+      fetchEvent();
     }
-  }, [params.id])
+  }, [params.id]);
 
   const fetchEvent = async () => {
     try {
-      const { data, error } = await supabase.from("events").select("*").eq("id", params.id).single()
-
-      if (error) throw error
+      const response = await fetch(`/api/events?id=${params.id}`);
+      if (!response.ok) throw new Error("Failed to fetch event");
+      const data = await response.json();
 
       setFormData({
         name: data.name,
         slug: data.slug,
-        start_date: data.start_date ? new Date(data.start_date).toISOString().slice(0, 16) : "",
-        end_date: data.end_date ? new Date(data.end_date).toISOString().slice(0, 16) : "",
+        start_date: data.start_date
+          ? new Date(data.start_date).toISOString().slice(0, 16)
+          : "",
+        end_date: data.end_date
+          ? new Date(data.end_date).toISOString().slice(0, 16)
+          : "",
         location: data.location || "",
         description: data.description || "",
         image_url: data.image_url || "",
-      })
+      });
     } catch (error) {
-      console.error("Error fetching event:", error)
+      console.error("Error fetching event:", error);
       toast({
         title: "Error",
         description: "Gagal memuat data event",
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const clearRedis = async () => {
     try {
-      await fetch('/api/clear-redis', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'events' }),
-      })
+      await fetch("/api/clear-redis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "events" }),
+      });
     } catch (e) {
       // Optional: bisa tambahkan toast error jika perlu
     }
-  }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSaving(true)
+    e.preventDefault();
+    setSaving(true);
 
     try {
-      const { error } = await supabase.from("events").update(formData).eq("id", params.id)
+      const response = await fetch("/api/events", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id: params.id, ...formData }),
+      });
 
-      if (error) throw error
+      if (!response.ok) throw new Error("Failed to update event");
 
       toast({
         title: "Berhasil",
         description: "Event berhasil diperbarui",
-      })
-      await clearRedis()
-      router.push(`/events/${params.id}`)
+      });
+      await clearRedis();
+      router.push(`/events`); // Redirect to events list
     } catch (error) {
-      console.error("Error updating event:", error)
+      console.error("Error updating event:", error);
       toast({
         title: "Error",
         description: "Gagal memperbarui event",
         variant: "destructive",
-      })
+      });
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const generateSlug = (name: string) => {
     return name
@@ -112,8 +127,8 @@ export default function EditEventPage() {
       .replace(/[^a-z0-9\s-]/g, "")
       .replace(/\s+/g, "-")
       .replace(/-+/g, "-")
-      .trim()
-  }
+      .trim();
+  };
 
   if (loading) {
     return (
@@ -123,7 +138,7 @@ export default function EditEventPage() {
           <div className="h-96 bg-gray-200 rounded"></div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -149,12 +164,12 @@ export default function EditEventPage() {
                   id="name"
                   value={formData.name}
                   onChange={(e) => {
-                    const name = e.target.value
+                    const name = e.target.value;
                     setFormData({
                       ...formData,
                       name,
                       slug: generateSlug(name),
-                    })
+                    });
                   }}
                   required
                 />
@@ -164,7 +179,9 @@ export default function EditEventPage() {
                 <Input
                   id="slug"
                   value={formData.slug}
-                  onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, slug: e.target.value })
+                  }
                   required
                 />
               </div>
@@ -177,7 +194,9 @@ export default function EditEventPage() {
                   id="start_date"
                   type="datetime-local"
                   value={formData.start_date}
-                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, start_date: e.target.value })
+                  }
                 />
               </div>
               <div className="space-y-2">
@@ -186,7 +205,9 @@ export default function EditEventPage() {
                   id="end_date"
                   type="datetime-local"
                   value={formData.end_date}
-                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, end_date: e.target.value })
+                  }
                 />
               </div>
             </div>
@@ -196,7 +217,9 @@ export default function EditEventPage() {
               <Input
                 id="location"
                 value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, location: e.target.value })
+                }
               />
             </div>
 
@@ -212,16 +235,26 @@ export default function EditEventPage() {
 
             <RichTextEditor
               value={formData.description || ""}
-              onChange={(value) => setFormData({ ...formData, description: value })}
+              onChange={(value) =>
+                setFormData({ ...formData, description: value })
+              }
               label="Deskripsi Event"
               placeholder="Masukkan deskripsi event..."
             />
 
             <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={() => router.back()}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.back()}
+              >
                 Batal
               </Button>
-              <Button type="submit" className="bg-purple-600 hover:bg-purple-700" disabled={saving}>
+              <Button
+                type="submit"
+                className="bg-purple-600 hover:bg-purple-700"
+                disabled={saving}
+              >
                 <Save className="h-4 w-4 mr-2" />
                 {saving ? "Menyimpan..." : "Simpan Perubahan"}
               </Button>
@@ -230,5 +263,5 @@ export default function EditEventPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

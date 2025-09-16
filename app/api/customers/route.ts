@@ -29,11 +29,13 @@ export async function GET() {
     return NextResponse.json(customers);
   } catch (error) {
     console.error("Error fetching customers:", error);
-    console.error("Error details:", {
-      message: error.message,
-      stack: error.stack,
-      name: error.name,
-    });
+    if (error instanceof Error) {
+      console.error("Error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      });
+    }
     return NextResponse.json(
       { error: "Failed to fetch customers" },
       { status: 500 },

@@ -1,113 +1,141 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Mail, MessageCircle, ShoppingCart, CreditCard, Eye, Search, RefreshCw } from "lucide-react"
-import { supabase } from "@/lib/supabase"
-import { useToast } from "@/hooks/use-toast"
-import type { Database } from "@/lib/supabase"
-import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext, PaginationLink } from "@/components/ui/pagination"
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Mail,
+  MessageCircle,
+  ShoppingCart,
+  CreditCard,
+  Eye,
+  Search,
+  RefreshCw,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationPrevious,
+  PaginationNext,
+  PaginationLink,
+} from "@/components/ui/pagination";
+import { JsonBeautifier } from "@/components/JsonBeautifier";
 
-type NotificationLog = Database["public"]["Tables"]["notification_logs"]["Row"]
+type NotificationLog = {
+  id: number;
+  order_reference: string | null;
+  recipient_phone: string | null;
+  created_at: string;
+  request_payload: any | null;
+  response_payload: any | null;
+  channel: string;
+  trigger_on: string;
+  customer_name: string | null;
+};
 
 export default function NotificationLogsPage() {
-  const [logs, setLogs] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [channelFilter, setChannelFilter] = useState<string>("all")
-  const [triggerFilter, setTriggerFilter] = useState<string>("all")
-  const [selectedLog, setSelectedLog] = useState<any | null>(null)
-  const [detailDialogOpen, setDetailDialogOpen] = useState(false)
-  const { toast } = useToast()
-  const [page, setPage] = useState(1)
-  const pageSize = 10
-  const pagedLogs = logs.slice((page - 1) * pageSize, page * pageSize)
-  const totalPages = Math.ceil(logs.length / pageSize)
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [channelFilter, setChannelFilter] = useState<string>("all");
+  const [triggerFilter, setTriggerFilter] = useState<string>("all");
+  const [selectedLog, setSelectedLog] = useState<any | null>(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const { toast } = useToast();
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+  const pagedLogs = logs.slice((page - 1) * pageSize, page * pageSize);
+  const totalPages = Math.ceil(logs.length / pageSize);
 
   useEffect(() => {
-    fetchLogs()
-  }, [])
+    fetchLogs();
+  }, []);
 
   const fetchLogs = async () => {
     try {
-      setLoading(true)
-      // Ambil notification_logs
-      const { data: logsData, error: logsError } = await supabase
-        .from("notification_logs")
-        .select("id, order_reference, recipient_phone, created_at, request_payload, response_payload, channel, trigger_on")
-        .order("created_at", { ascending: false })
-      // Ambil orders
-      const { data: ordersData, error: ordersError } = await supabase
-        .from("orders")
-        .select("order_reference, customer_id")
-      // Ambil customers
-      const { data: customersData, error: customersError } = await supabase
-        .from("customers")
-        .select("id, name")
-      if (logsError || ordersError || customersError) {
-        toast({
-          title: "Error",
-          description: "Failed to fetch notification logs",
-          variant: "destructive",
-        })
-        setLogs([])
-        return
-      }
-      // Gabungkan logs dengan orders dan customers berdasarkan order_reference dan customer_id
-      const logsWithOrder = (logsData || []).map(log => {
-        const order = (ordersData || []).find(o => o.order_reference === log.order_reference)
-        const customer = order ? (customersData || []).find(c => c.id === order.customer_id) : null
-        return {
-          ...log,
-          customer_name: customer?.name || null,
-        }
-      })
-      setLogs(logsWithOrder)
+      setLoading(true);
+      const response = await fetch("/api/notification-logs");
+      if (!response.ok) throw new Error("Failed to fetch logs");
+      const data = await response.json();
+      setLogs(data || []);
     } catch (error) {
-      console.error("Error fetching notification logs:", error)
+      console.error("Error fetching notification logs:", error);
       toast({
         title: "Error",
         description: "Failed to fetch notification logs",
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const filteredLogs = logs.filter((log) => {
     const matchesSearch =
       !searchTerm ||
       log.order_id?.toString().includes(searchTerm) ||
-      log.recipient?.toLowerCase().includes(searchTerm.toLowerCase())
+      log.recipient?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesChannel = channelFilter === "all" || log.channel === channelFilter
-    const matchesTrigger = triggerFilter === "all" || log.trigger_on === triggerFilter
+    const matchesChannel =
+      channelFilter === "all" || log.channel === channelFilter;
+    const matchesTrigger =
+      triggerFilter === "all" || log.trigger_on === triggerFilter;
 
-    return matchesSearch && matchesChannel && matchesTrigger
-  })
+    return matchesSearch && matchesChannel && matchesTrigger;
+  });
 
   const getChannelIcon = (channel: string) => {
-    return channel === "email" ? <Mail className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />
-  }
+    return channel === "email" ? (
+      <Mail className="h-4 w-4" />
+    ) : (
+      <MessageCircle className="h-4 w-4" />
+    );
+  };
 
   const getTriggerIcon = (trigger: string) => {
-    return trigger === "checkout" ? <ShoppingCart className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />
-  }
+    return trigger === "checkout" ? (
+      <ShoppingCart className="h-4 w-4" />
+    ) : (
+      <CreditCard className="h-4 w-4" />
+    );
+  };
 
   const getChannelBadgeColor = (channel: string) => {
-    return channel === "email" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
-  }
+    return channel === "email"
+      ? "bg-blue-100 text-blue-800"
+      : "bg-green-100 text-green-800";
+  };
 
   const getTriggerBadgeColor = (trigger: string) => {
-    return trigger === "checkout" ? "bg-orange-100 text-orange-800" : "bg-green-100 text-green-800"
-  }
+    return trigger === "checkout"
+      ? "bg-orange-100 text-orange-800"
+      : "bg-green-100 text-green-800";
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString("id-ID", {
@@ -116,19 +144,21 @@ export default function NotificationLogsPage() {
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-    })
-  }
+    });
+  };
 
   const openDetailDialog = (log: NotificationLog) => {
-    setSelectedLog(log)
-    setDetailDialogOpen(true)
-  }
+    setSelectedLog(log);
+    setDetailDialogOpen(true);
+  };
 
   if (loading) {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">Notification Logs</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Notification Logs
+          </h1>
         </div>
         <Card>
           <CardContent className="p-6">
@@ -145,7 +175,7 @@ export default function NotificationLogsPage() {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   return (
@@ -222,31 +252,46 @@ export default function NotificationLogsPage() {
               <TableBody>
                 {pagedLogs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                    <TableCell
+                      colSpan={7}
+                      className="text-center py-8 text-gray-500"
+                    >
                       No notification logs found
                     </TableCell>
                   </TableRow>
                 ) : (
                   pagedLogs.map((log) => (
                     <TableRow key={log.id}>
-                      <TableCell className="font-medium">{log.order_reference || "-"}</TableCell>
+                      <TableCell className="font-medium">
+                        {log.order_reference || "-"}
+                      </TableCell>
                       <TableCell>
-                        <Badge className={`${getChannelBadgeColor(log.channel)} flex items-center gap-1 w-fit`}>
+                        <Badge
+                          className={`${getChannelBadgeColor(log.channel)} flex items-center gap-1 w-fit`}
+                        >
                           {getChannelIcon(log.channel)}
                           {log.channel}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge className={`${getTriggerBadgeColor(log.trigger_on)} flex items-center gap-1 w-fit`}>
+                        <Badge
+                          className={`${getTriggerBadgeColor(log.trigger_on)} flex items-center gap-1 w-fit`}
+                        >
                           {getTriggerIcon(log.trigger_on)}
                           {log.trigger_on}
                         </Badge>
                       </TableCell>
                       <TableCell>{log.recipient_phone || "-"}</TableCell>
                       <TableCell>{log.customer_name || "-"}</TableCell>
-                      <TableCell className="text-sm text-gray-600">{log.created_at ? formatDate(log.created_at) : "-"}</TableCell>
+                      <TableCell className="text-sm text-gray-600">
+                        {log.created_at ? formatDate(log.created_at) : "-"}
+                      </TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="sm" onClick={() => openDetailDialog(log)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openDetailDialog(log)}
+                        >
                           <Eye className="h-4 w-4" />
                         </Button>
                       </TableCell>
@@ -262,17 +307,28 @@ export default function NotificationLogsPage() {
               <Pagination>
                 <PaginationContent>
                   <PaginationItem>
-                    <PaginationPrevious onClick={() => setPage((p) => Math.max(1, p - 1))} aria-disabled={page === 1} />
+                    <PaginationPrevious
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      aria-disabled={page === 1}
+                    />
                   </PaginationItem>
                   {[...Array(totalPages)].map((_, i) => (
                     <PaginationItem key={i}>
-                      <PaginationLink isActive={page === i + 1} onClick={() => setPage(i + 1)}>
+                      <PaginationLink
+                        isActive={page === i + 1}
+                        onClick={() => setPage(i + 1)}
+                      >
                         {i + 1}
                       </PaginationLink>
                     </PaginationItem>
                   ))}
                   <PaginationItem>
-                    <PaginationNext onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-disabled={page === totalPages} />
+                    <PaginationNext
+                      onClick={() =>
+                        setPage((p) => Math.min(totalPages, p + 1))
+                      }
+                      aria-disabled={page === totalPages}
+                    />
                   </PaginationItem>
                 </PaginationContent>
               </Pagination>
@@ -297,24 +353,30 @@ export default function NotificationLogsPage() {
                       <strong>ID:</strong> {selectedLog.id}
                     </div>
                     <div>
-                      <strong>Order Reference:</strong> {selectedLog.order_reference || "-"}
+                      <strong>Order Reference:</strong>{" "}
+                      {selectedLog.order_reference || "-"}
                     </div>
                     <div>
                       <strong>Channel:</strong>
-                      <Badge className={`${getChannelBadgeColor(selectedLog.channel)} ml-2`}>
+                      <Badge
+                        className={`${getChannelBadgeColor(selectedLog.channel)} ml-2`}
+                      >
                         {getChannelIcon(selectedLog.channel)}
                         {selectedLog.channel}
                       </Badge>
                     </div>
                     <div>
                       <strong>Trigger:</strong>
-                      <Badge className={`${getTriggerBadgeColor(selectedLog.trigger_on)} ml-2`}>
+                      <Badge
+                        className={`${getTriggerBadgeColor(selectedLog.trigger_on)} ml-2`}
+                      >
                         {getTriggerIcon(selectedLog.trigger_on)}
                         {selectedLog.trigger_on}
                       </Badge>
                     </div>
                     <div>
-                      <strong>Created:</strong> {formatDate(selectedLog.created_at)}
+                      <strong>Created:</strong>{" "}
+                      {formatDate(selectedLog.created_at)}
                     </div>
                   </div>
                 </div>
@@ -335,7 +397,9 @@ export default function NotificationLogsPage() {
                           </>
                         )}
                         {selectedLog.customer_name && (
-                          <span className="ml-2 text-gray-500">({selectedLog.customer_name})</span>
+                          <span className="ml-2 text-gray-500">
+                            ({selectedLog.customer_name})
+                          </span>
                         )}
                       </div>
                     )}
@@ -346,15 +410,23 @@ export default function NotificationLogsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <h4 className="font-semibold mb-2">Request Payload</h4>
-                  <pre className="bg-gray-100 p-3 rounded text-xs whitespace-pre-wrap break-all max-h-60">
-                    {JSON.stringify(selectedLog.request_payload, null, 2)}
-                  </pre>
+                  {selectedLog.request_payload ? (
+                    <JsonBeautifier data={selectedLog.request_payload} />
+                  ) : (
+                    <div className="mt-2 p-4 bg-gray-100 rounded-lg text-xs text-gray-500">
+                      (No Data)
+                    </div>
+                  )}
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Response Payload</h4>
-                  <pre className="bg-gray-100 p-3 rounded text-xs overflow-x-auto max-h-60">
-                    {JSON.stringify(selectedLog.response_payload, null, 2)}
-                  </pre>
+                  {selectedLog.response_payload ? (
+                    <JsonBeautifier data={selectedLog.response_payload} />
+                  ) : (
+                    <div className="mt-2 p-4 bg-gray-100 rounded-lg text-xs text-gray-500">
+                      (No Data)
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -362,5 +434,5 @@ export default function NotificationLogsPage() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }

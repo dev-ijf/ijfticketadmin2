@@ -1,163 +1,166 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table"
-import { supabase } from "@/lib/supabase"
-import { ArrowLeft, Plus, Edit, Trash2, Users } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import type { Database } from "@/lib/supabase"
-import { SimpleTableHeader } from "@/components/table-header"
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { supabase } from "@/lib/supabase";
+import { ArrowLeft, Plus, Edit, Trash2, Users } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import type { Database } from "@/lib/supabase";
+import { SimpleTableHeader } from "@/components/table-header";
 
-type TicketType = Database["public"]["Tables"]["ticket_types"]["Row"]
-type TicketTypeInsert = Database["public"]["Tables"]["ticket_types"]["Insert"]
-type TicketTypeUpdate = Database["public"]["Tables"]["ticket_types"]["Update"]
+type TicketType = Database["public"]["Tables"]["ticket_types"]["Row"];
+type TicketTypeInsert = Database["public"]["Tables"]["ticket_types"]["Insert"];
+type TicketTypeUpdate = Database["public"]["Tables"]["ticket_types"]["Update"];
 
 export default function EventTicketsPage() {
-  const params = useParams()
-  const router = useRouter()
-  const [ticketTypes, setTicketTypes] = useState<TicketType[]>([])
-  const [loading, setLoading] = useState(true)
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [editingTicket, setEditingTicket] = useState<TicketType | null>(null)
-  const [eventName, setEventName] = useState("")
+  const params = useParams();
+  const router = useRouter();
+  const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingTicket, setEditingTicket] = useState<TicketType | null>(null);
+  const [eventName, setEventName] = useState("");
   const [formData, setFormData] = useState<TicketTypeInsert>({
     event_id: Number(params.id),
     name: "",
     price: 0,
     quantity_total: 0,
-  })
-  const { toast } = useToast()
+  });
+  const { toast } = useToast();
 
   useEffect(() => {
     if (params.id) {
-      fetchEventAndTickets()
+      fetchEventAndTickets();
     }
-  }, [params.id])
+  }, [params.id]);
 
   const fetchEventAndTickets = async () => {
     try {
-      // Fetch event info
-      const { data: eventData, error: eventError } = await supabase
-        .from("events")
-        .select("name")
-        .eq("id", params.id)
-        .single()
-
-      if (eventError) throw eventError
-      setEventName(eventData.name)
-
-      // Fetch ticket types
-      const { data: ticketsData, error: ticketsError } = await supabase
-        .from("ticket_types")
-        .select("*")
-        .eq("event_id", params.id)
-        .order("created_at", { ascending: false })
-
-      if (ticketsError) throw ticketsError
-      setTicketTypes(ticketsData || [])
+      const response = await fetch(`/api/ticket-types?eventId=${params.id}`);
+      if (!response.ok) throw new Error("Failed to fetch data");
+      const data = await response.json();
+      setEventName(data.eventName);
+      setTicketTypes(data.ticketTypes || []);
     } catch (error) {
-      console.error("Error fetching data:", error)
+      console.error("Error fetching data:", error);
       toast({
         title: "Error",
         description: "Gagal memuat data",
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     try {
-      if (editingTicket) {
-        const { error } = await supabase
-          .from("ticket_types")
-          .update(formData as TicketTypeUpdate)
-          .eq("id", editingTicket.id)
+      const method = editingTicket ? "PUT" : "POST";
+      const body = editingTicket
+        ? JSON.stringify({ id: editingTicket.id, ...formData })
+        : JSON.stringify(formData);
 
-        if (error) throw error
-        toast({
-          title: "Berhasil",
-          description: "Ticket type berhasil diperbarui",
-        })
-      } else {
-        const { error } = await supabase.from("ticket_types").insert([formData])
+      const response = await fetch("/api/ticket-types", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
 
-        if (error) throw error
-        toast({
-          title: "Berhasil",
-          description: "Ticket type berhasil ditambahkan",
-        })
+      if (!response.ok) {
+        throw new Error(
+          editingTicket
+            ? "Failed to update ticket type"
+            : "Failed to create ticket type",
+        );
       }
 
-      setDialogOpen(false)
-      setEditingTicket(null)
+      toast({
+        title: "Berhasil",
+        description: `Ticket type berhasil ${editingTicket ? "diperbarui" : "ditambahkan"}`,
+      });
+
+      setDialogOpen(false);
+      setEditingTicket(null);
       setFormData({
         event_id: Number(params.id),
         name: "",
         price: 0,
         quantity_total: 0,
-      })
-      fetchEventAndTickets()
+      });
+      fetchEventAndTickets(); // Refresh data
     } catch (error) {
-      console.error("Error saving ticket type:", error)
+      console.error("Error saving ticket type:", error);
       toast({
         title: "Error",
         description: "Gagal menyimpan ticket type",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   const handleEdit = (ticket: TicketType) => {
-    setEditingTicket(ticket)
+    setEditingTicket(ticket);
     setFormData({
       event_id: ticket.event_id,
       name: ticket.name,
       price: Number(ticket.price),
       quantity_total: ticket.quantity_total,
-    })
-    setDialogOpen(true)
-  }
+    });
+    setDialogOpen(true);
+  };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Apakah Anda yakin ingin menghapus ticket type ini?")) return
+    if (!confirm("Apakah Anda yakin ingin menghapus ticket type ini?")) return;
 
     try {
-      const { error } = await supabase.from("ticket_types").delete().eq("id", id)
+      const response = await fetch(`/api/ticket-types?id=${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Failed to delete ticket type");
 
-      if (error) throw error
       toast({
         title: "Berhasil",
         description: "Ticket type berhasil dihapus",
-      })
-      fetchEventAndTickets()
+      });
+      fetchEventAndTickets(); // Refresh data
     } catch (error) {
-      console.error("Error deleting ticket type:", error)
+      console.error("Error deleting ticket type:", error);
       toast({
         title: "Error",
         description: "Gagal menghapus ticket type",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
-    }).format(amount)
-  }
+    }).format(amount);
+  };
 
   if (loading) {
     return (
@@ -167,7 +170,7 @@ export default function EventTicketsPage() {
           <div className="h-64 bg-gray-200 rounded"></div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -179,7 +182,9 @@ export default function EventTicketsPage() {
             Kembali
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Kelola Ticket Types</h1>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Kelola Ticket Types
+            </h1>
             <p className="text-gray-500">{eventName}</p>
           </div>
         </div>
@@ -192,7 +197,9 @@ export default function EventTicketsPage() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editingTicket ? "Edit Ticket Type" : "Tambah Ticket Type Baru"}</DialogTitle>
+              <DialogTitle>
+                {editingTicket ? "Edit Ticket Type" : "Tambah Ticket Type Baru"}
+              </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
@@ -200,7 +207,9 @@ export default function EventTicketsPage() {
                 <Input
                   id="name"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                   required
                 />
               </div>
@@ -212,7 +221,9 @@ export default function EventTicketsPage() {
                   min="0"
                   step="1000"
                   value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, price: Number(e.target.value) })
+                  }
                   required
                 />
               </div>
@@ -223,7 +234,12 @@ export default function EventTicketsPage() {
                   type="number"
                   min="1"
                   value={formData.quantity_total}
-                  onChange={(e) => setFormData({ ...formData, quantity_total: Number(e.target.value) })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      quantity_total: Number(e.target.value),
+                    })
+                  }
                   required
                 />
               </div>
@@ -232,19 +248,22 @@ export default function EventTicketsPage() {
                   type="button"
                   variant="outline"
                   onClick={() => {
-                    setDialogOpen(false)
-                    setEditingTicket(null)
+                    setDialogOpen(false);
+                    setEditingTicket(null);
                     setFormData({
                       event_id: Number(params.id),
                       name: "",
                       price: 0,
                       quantity_total: 0,
-                    })
+                    });
                   }}
                 >
                   Batal
                 </Button>
-                <Button type="submit" className="bg-purple-600 hover:bg-purple-700">
+                <Button
+                  type="submit"
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
                   {editingTicket ? "Perbarui" : "Simpan"}
                 </Button>
               </div>
@@ -276,7 +295,9 @@ export default function EventTicketsPage() {
                     <div className="font-medium">{ticket.name}</div>
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium text-purple-600">{formatCurrency(Number(ticket.price))}</div>
+                    <div className="font-medium text-purple-600">
+                      {formatCurrency(Number(ticket.price))}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center space-x-1">
@@ -290,7 +311,9 @@ export default function EventTicketsPage() {
                   <TableCell>
                     <span
                       className={`font-medium ${
-                        ticket.quantity_total - ticket.quantity_sold <= 10 ? "text-red-600" : "text-green-600"
+                        ticket.quantity_total - ticket.quantity_sold <= 10
+                          ? "text-red-600"
+                          : "text-green-600"
                       }`}
                     >
                       {ticket.quantity_total - ticket.quantity_sold}
@@ -298,10 +321,18 @@ export default function EventTicketsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex space-x-2">
-                      <Button size="sm" variant="outline" onClick={() => handleEdit(ticket)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEdit(ticket)}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleDelete(ticket.id)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDelete(ticket.id)}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -312,11 +343,12 @@ export default function EventTicketsPage() {
           </Table>
           {ticketTypes.length === 0 && (
             <div className="text-center py-8 text-gray-500">
-              Belum ada ticket type. Klik tombol "Tambah Ticket Type" untuk menambahkan.
+              Belum ada ticket type. Klik tombol "Tambah Ticket Type" untuk
+              menambahkan.
             </div>
           )}
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

@@ -1,31 +1,25 @@
 import { NextResponse } from "next/server";
-import { sql } from "@/lib/database";
+import { getSql } from "@/lib/database";
 
 export async function GET() {
+  const sql = getSql();
   try {
-    const [
-      eventsResult,
-      customersResult,
-      ordersResult,
-      ticketsResult,
-      revenueResult,
-      pendingOrdersResult,
-    ] = await Promise.all([
-      sql`SELECT COUNT(*) as count FROM events`,
-      sql`SELECT COUNT(*) as count FROM customers`,
-      sql`SELECT COUNT(*) as count FROM orders`,
-      sql`SELECT COUNT(*) as count FROM tickets`,
-      sql`SELECT COALESCE(SUM(final_amount), 0) as total FROM orders WHERE status = 'paid'`,
-      sql`SELECT COUNT(*) as count FROM orders WHERE status = 'pending'`,
-    ]);
+    const eventsResult = await sql`SELECT COUNT(*) as count FROM events`;
+    const customersResult = await sql`SELECT COUNT(*) as count FROM customers`;
+    const ordersResult = await sql`SELECT COUNT(*) as count FROM orders`;
+    const ticketsResult = await sql`SELECT COUNT(*) as count FROM tickets`;
+    const revenueResult =
+      await sql`SELECT COALESCE(SUM(final_amount), 0) as total FROM orders WHERE status = 'paid'`;
+    const pendingOrdersResult =
+      await sql`SELECT COUNT(*) as count FROM orders WHERE status = 'pending'`;
 
     const stats = {
-      totalEvents: Number((eventsResult as any)[0]?.count) || 0,
-      totalCustomers: Number((customersResult as any)[0]?.count) || 0,
-      totalOrders: Number((ordersResult as any)[0]?.count) || 0,
-      totalTickets: Number((ticketsResult as any)[0]?.count) || 0,
-      totalRevenue: Number((revenueResult as any)[0]?.total) || 0,
-      pendingOrders: Number((pendingOrdersResult as any)[0]?.count) || 0,
+      totalEvents: Number(eventsResult[0]?.count) || 0,
+      totalCustomers: Number(customersResult[0]?.count) || 0,
+      totalOrders: Number(ordersResult[0]?.count) || 0,
+      totalTickets: Number(ticketsResult[0]?.count) || 0,
+      totalRevenue: Number(revenueResult[0]?.total) || 0,
+      pendingOrders: Number(pendingOrdersResult[0]?.count) || 0,
     };
 
     return NextResponse.json(stats);
