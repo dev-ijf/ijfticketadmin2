@@ -1,13 +1,17 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { getSql } from "@/lib/database"
+import { type NextRequest, NextResponse } from "next/server";
+import { getSql } from "@/lib/database";
+
+// Force dynamic rendering and disable caching
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET() {
   try {
-    const sql = getSql()
+    const sql = getSql();
 
     // Get orders with related data
     const orders = await sql`
-      SELECT 
+      SELECT
         o.*,
         c.name as customer_name,
         c.email as customer_email,
@@ -22,40 +26,80 @@ export async function GET() {
       LEFT JOIN events e ON o.event_id = e.id
       LEFT JOIN payment_channels pc ON o.payment_channel_id = pc.id
       ORDER BY o.created_at DESC
-    `
+    `;
 
     // Get events for filter dropdown
-    const events = await sql`SELECT id, name FROM events ORDER BY name`
+    const events = await sql`SELECT id, name FROM events ORDER BY name`;
 
     // Get payment channels for filter dropdown
     const paymentChannels =
-      await sql`SELECT id, pg_name as name, vendor as type, category FROM payment_channels WHERE is_active = true ORDER BY sort_order, pg_name`
+      await sql`SELECT id, pg_name as name, vendor as type, category FROM payment_channels WHERE is_active = true ORDER BY sort_order, pg_name`;
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       orders,
       events,
       paymentChannels,
-    })
-  } catch (error) {
-    console.error("Error fetching orders:", error)
-    return NextResponse.json({ error: "Failed to fetch orders" }, { status: 500 })
+    });
+
+    // Add no-cache headers to prevent caching
+    response.headers.set(
+      "Cache-Control",
+      "no-cache, no-store, must-revalidate, max-age=0",
+    );
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
+
+    return response;
+  } catch (error: any) {
+    console.error("Error fetching orders:", error);
+    return NextResponse.json(
+      {
+        error: "Failed to fetch orders",
+        details: error?.message || "Unknown error",
+      },
+      { status: 500 },
+    );
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
-    const { id, status } = await request.json()
-    const sql = getSql()
+    const { id, status } = await request.json();
+    console.log(`Updating order ${id} to status: ${status}`);
 
-    await sql`
-      UPDATE orders 
+    const sql = getSql();
+
+    const result = await sql`
+      UPDATE orders
       SET status = ${status}, updated_at = NOW()
       WHERE id = ${id}
-    `
+      RETURNING id, status, updated_at
+    `;
 
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error("Error updating order:", error)
-    return NextResponse.json({ error: "Failed to update order" }, { status: 500 })
+    console.log("Update result:", result);
+
+    const response = NextResponse.json({
+      success: true,
+      updated: result[0] || null,
+    });
+
+    // Add no-cache headers
+    response.headers.set(
+      "Cache-Control",
+      "no-cache, no-store, must-revalidate, max-age=0",
+    );
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
+
+    return response;
+  } catch (error: any) {
+    console.error("Error updating order:", error);
+    return NextResponse.json(
+      {
+        error: "Failed to update order",
+        details: error?.message || "Unknown error",
+      },
+      { status: 500 },
+    );
   }
 }

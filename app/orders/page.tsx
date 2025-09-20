@@ -1,83 +1,163 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { Search, Filter, RefreshCw } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import { SimpleTableHeader } from "@/components/table-header"
+import { useEffect, useState, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import {
+  Search,
+  Filter,
+  RefreshCw,
+  Upload,
+  Download,
+  FileSpreadsheet,
+  Send,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { SimpleTableHeader } from "@/components/table-header";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import * as XLSX from "xlsx";
 
 type Order = {
-  id: number
-  customer_id: number
-  event_id: number
-  payment_channel_id: number | null
-  total_amount: number
-  discount_amount: number | null
-  final_amount: number
-  status: string
-  order_date: string
-  proof_transfer: string | null
-  created_at: string
-  updated_at: string
-  customer_name: string
-  customer_email: string
-  customer_phone: string | null
-  event_name: string
-  event_slug: string
-  payment_channel_name: string | null
-  payment_channel_type: string | null
-}
+  id: number;
+  customer_id: number;
+  event_id: number;
+  payment_channel_id: number | null;
+  total_amount: number;
+  discount_amount: number | null;
+  final_amount: number;
+  status: string;
+  order_date: string;
+  proof_transfer: string | null;
+  created_at: string;
+  updated_at: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string | null;
+  event_name: string;
+  event_slug: string;
+  payment_channel_name: string | null;
+  payment_channel_type: string | null;
+};
 
 type Event = {
-  id: number
-  name: string
-}
+  id: number;
+  name: string;
+};
 
 type PaymentChannel = {
-  id: number
-  name: string
-  type: string
-}
+  id: number;
+  name: string;
+  type: string;
+};
+
+type UploadRow = {
+  customer_name: string;
+  customer_email: string;
+  customer_phone_number: string;
+  event_id: number;
+  ticket_type_id: number;
+  quantity: number;
+  final_amount: number;
+  order_date: string;
+  payment_channel_id: number;
+  barcode_id?: string;
+};
+
+type TempOrder = {
+  id: number;
+  upload_session_id: string;
+  row_number: number;
+  customer_name: string;
+  customer_email: string;
+  customer_phone_number: string;
+  event_id: number;
+  ticket_type_id: number;
+  quantity: number;
+  final_amount: number;
+  order_date: string;
+  payment_channel_id: number;
+  barcode_id: string | null;
+  import_status: "pending" | "success" | "error";
+  error_message: string | null;
+};
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<Order[]>([])
-  const [events, setEvents] = useState<Event[]>([])
-  const [paymentChannels, setPaymentChannels] = useState<PaymentChannel[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [eventFilter, setEventFilter] = useState("all")
-  const [paymentFilter, setPaymentFilter] = useState("all")
-  const { toast } = useToast()
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [paymentChannels, setPaymentChannels] = useState<PaymentChannel[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [eventFilter, setEventFilter] = useState("all");
+  const [paymentFilter, setPaymentFilter] = useState("all");
+  const { toast } = useToast();
+
+  // Upload states
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [uploadData, setUploadData] = useState<UploadRow[]>([]);
+  const [importLoading, setImportLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchOrders()
-  }, [])
+    fetchOrders();
+  }, []);
+
+  // Auto-refresh every 10 seconds for realtime updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchOrders();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchOrders = async () => {
     try {
-      const response = await fetch("/api/orders")
-      if (!response.ok) throw new Error("Failed to fetch orders")
-      const data = await response.json()
-      setOrders(data.orders || [])
-      setEvents(data.events || [])
-      setPaymentChannels(data.paymentChannels || [])
+      const response = await fetch(`/api/orders?t=${Date.now()}`, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+      });
+      if (!response.ok) throw new Error("Failed to fetch orders");
+      const data = await response.json();
+      setOrders(data.orders || []);
+      setEvents(data.events || []);
+      setPaymentChannels(data.paymentChannels || []);
     } catch (error) {
-      console.error("Error fetching orders:", error)
+      console.error("Error fetching orders:", error);
       toast({
         title: "Error",
         description: "Gagal memuat data orders",
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const updateOrderStatus = async (orderId: number, newStatus: string) => {
     try {
@@ -85,29 +165,311 @@ export default function OrdersPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: orderId, status: newStatus }),
-      })
-      if (!response.ok) throw new Error("Failed to update order status")
+      });
+      if (!response.ok) throw new Error("Failed to update order status");
       toast({
         title: "Berhasil",
         description: "Status order berhasil diperbarui",
-      })
-      fetchOrders()
+      });
+      await fetchOrders();
     } catch (error) {
-      console.error("Error updating order status:", error)
+      console.error("Error updating order status:", error);
       toast({
         title: "Error",
         description: "Gagal memperbarui status order",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
+
+  // Export orders to Excel
+  const exportOrders = async () => {
+    try {
+      const exportData = filteredOrders.map((order) => ({
+        "Order ID": order.id,
+        "Customer Name": order.customer_name,
+        "Customer Email": order.customer_email,
+        "Customer Phone": order.customer_phone || "",
+        "Event Name": order.event_name,
+        "Final Amount": order.final_amount,
+        "Payment Method": order.payment_channel_name || "",
+        Status: order.status,
+        "Order Date": new Date(order.order_date).toLocaleDateString("id-ID"),
+        "Created At": new Date(order.created_at).toLocaleDateString("id-ID"),
+      }));
+
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+      // Set column widths
+      const columnWidths = [
+        { wch: 10 }, // Order ID
+        { wch: 25 }, // Customer Name
+        { wch: 30 }, // Customer Email
+        { wch: 15 }, // Customer Phone
+        { wch: 30 }, // Event Name
+        { wch: 15 }, // Final Amount
+        { wch: 20 }, // Payment Method
+        { wch: 12 }, // Status
+        { wch: 15 }, // Order Date
+        { wch: 15 }, // Created At
+      ];
+      worksheet["!cols"] = columnWidths;
+
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
+      const fileName = `orders_export_${new Date().toISOString().split("T")[0]}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+
+      toast({
+        title: "Export Berhasil",
+        description: `Berhasil mengexport ${exportData.length} data orders`,
+      });
+    } catch (error) {
+      console.error("Error exporting orders:", error);
+      toast({
+        title: "Export Gagal",
+        description: "Gagal mengexport data orders",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Download template Excel
+  const downloadTemplate = () => {
+    // Create manual data structure to ensure proper column separation
+    const headers = [
+      "customer_name",
+      "customer_email",
+      "customer_phone_number",
+      "event_id",
+      "ticket_type_id",
+      "quantity",
+      "final_amount",
+      "order_date",
+      "payment_channel_id",
+      "barcode_id",
+    ];
+
+    const sampleData = [
+      "John Doe",
+      "john@example.com",
+      "081234567890",
+      1,
+      1,
+      2,
+      150000,
+      "2024-01-15",
+      1,
+      "SAMPLE123",
+    ];
+
+    const instructionsData = [
+      "Tips:",
+      "- customer_name: Nama lengkap",
+      "- customer_email: Email valid",
+      "- customer_phone_number: 08xxx atau +62xxx",
+      "- event_id: ID Event (cek di sistem)",
+      "- ticket_type_id: ID Tipe Tiket (cek di sistem)",
+      "- quantity: Jumlah pembelian",
+      "- final_amount: Total bayar (tanpa separator)",
+      "- order_date: Format YYYY-MM-DD",
+      "- payment_channel_id: ID Payment Channel",
+      "- barcode_id: Kode barcode (opsional)",
+      "Flow: Order → Order Items → Attendees → Tickets (trigger)",
+    ];
+
+    const workbook = XLSX.utils.book_new();
+
+    // Create main worksheet
+    const ws_data = [headers, sampleData];
+    const worksheet = XLSX.utils.aoa_to_sheet(ws_data);
+
+    // Set column widths
+    const columnWidths = [
+      { wch: 20 }, // customer_name
+      { wch: 25 }, // customer_email
+      { wch: 18 }, // customer_phone_number
+      { wch: 10 }, // event_id
+      { wch: 15 }, // ticket_type_id
+      { wch: 10 }, // quantity
+      { wch: 15 }, // final_amount
+      { wch: 12 }, // order_date
+      { wch: 20 }, // payment_channel_id
+      { wch: 15 }, // barcode_id
+    ];
+    worksheet["!cols"] = columnWidths;
+
+    // Add instructions sheet
+    const instructionsWs = XLSX.utils.aoa_to_sheet([instructionsData]);
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Data");
+    XLSX.utils.book_append_sheet(workbook, instructionsWs, "Instructions");
+
+    XLSX.writeFile(workbook, "orders_upload_template.xlsx");
+
+    toast({
+      title: "Template Downloaded",
+      description:
+        "Template Excel dengan instruksi berhasil didownload. Gunakan sheet 'Data' untuk input.",
+    });
+  };
+
+  // Handle file upload
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        // Parse manual untuk menghindari masalah dengan merged cells
+        const headers = jsonData[0] as string[];
+        const rows = jsonData.slice(1) as any[][];
+
+        const parsedData: UploadRow[] = rows
+          .filter((row) =>
+            row.some(
+              (cell) => cell !== null && cell !== undefined && cell !== "",
+            ),
+          )
+          .map((row, index) => {
+            try {
+              // Mapping manual untuk menghindari masalah format
+              const rowData = {
+                customer_name: String(row[0] || "").trim(),
+                customer_email: String(row[1] || "").trim(),
+                customer_phone_number: String(row[2] || "").trim(),
+                event_id: parseInt(String(row[3] || "1")),
+                ticket_type_id: parseInt(String(row[4] || "1")),
+                quantity: parseInt(String(row[5] || "1")),
+                final_amount: parseFloat(String(row[6] || "0")),
+                order_date: String(
+                  row[7] || new Date().toISOString().split("T")[0],
+                ),
+                payment_channel_id: parseInt(String(row[8] || "1")),
+                barcode_id: row[9] ? String(row[9]).trim() : undefined,
+              };
+
+              // Validasi data
+              if (!rowData.customer_name || !rowData.customer_email) {
+                throw new Error(
+                  `Row ${index + 2}: Customer name dan email harus diisi`,
+                );
+              }
+
+              return rowData;
+            } catch (error: any) {
+              console.error(`Error parsing row ${index + 2}:`, error, row);
+              throw error;
+            }
+          });
+
+        console.log("Parsed Excel data:", parsedData);
+        setUploadData(parsedData);
+        setUploadOpen(true);
+      } catch (error: any) {
+        console.error("Error parsing Excel file:", error);
+        toast({
+          title: "Error",
+          description: `Gagal membaca file Excel: ${error?.message || "Unknown error"}`,
+          variant: "destructive",
+        });
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  // Process direct import (langsung tanpa temp)
+  const processDirectImport = async () => {
+    if (uploadData.length === 0) {
+      toast({
+        title: "Error",
+        description: "Tidak ada data untuk diimport",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setImportLoading(true);
+    try {
+      let success = 0;
+      let failed = 0;
+      const errors: string[] = [];
+
+      for (const row of uploadData) {
+        try {
+          // Create order directly
+          const response = await fetch("/api/orders/create", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              customer_name: row.customer_name,
+              customer_email: row.customer_email,
+              customer_phone: row.customer_phone_number,
+              event_id: row.event_id,
+              ticket_type_id: row.ticket_type_id,
+              quantity: row.quantity,
+              final_amount: row.final_amount,
+              order_date: row.order_date,
+              payment_channel_id: row.payment_channel_id,
+              barcode_id: row.barcode_id,
+            }),
+          });
+
+          const result = await response.json();
+          if (!response.ok) {
+            throw new Error(result.error || "Failed to create order");
+          }
+
+          console.log(`Order created for ${row.customer_name}:`, result);
+          success++;
+        } catch (error: any) {
+          failed++;
+          errors.push(
+            `${row.customer_name}: ${error?.message || "Unknown error"}`,
+          );
+        }
+      }
+
+      toast({
+        title: "Import Selesai",
+        description: `Berhasil: ${success} orders (attendees → tickets via trigger), Gagal: ${failed}`,
+        variant: failed > 0 ? "destructive" : "default",
+      });
+
+      if (errors.length > 0) {
+        console.error("Import errors:", errors);
+      }
+
+      setUploadOpen(false);
+      // Refresh orders data
+      await fetchOrders();
+    } catch (error: any) {
+      console.error("Error processing direct import:", error);
+      toast({
+        title: "Import Gagal",
+        description: error?.message || "Gagal memproses import",
+        variant: "destructive",
+      });
+    } finally {
+      setImportLoading(false);
+    }
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
-    }).format(amount)
-  }
+    }).format(amount);
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("id-ID", {
@@ -116,43 +478,47 @@ export default function OrdersPage() {
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-    })
-  }
+    });
+  };
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status.toLowerCase()) {
       case "paid":
       case "completed":
-        return "default"
+        return "default";
       case "pending":
-        return "secondary"
+        return "secondary";
       case "cancelled":
       case "failed":
-        return "destructive"
+        return "destructive";
       default:
-        return "outline"
+        return "outline";
     }
-  }
+  };
 
   const filteredOrders = orders.filter((order) => {
     const matchesSearch =
       order.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.customer_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.event_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.id.toString().includes(searchTerm)
+      order.id.toString().includes(searchTerm);
 
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter
-    const matchesEvent = eventFilter === "all" || order.event_id.toString() === eventFilter
-    const matchesPayment = paymentFilter === "all" || order.payment_channel_id?.toString() === paymentFilter
+    const matchesStatus =
+      statusFilter === "all" || order.status === statusFilter;
+    const matchesEvent =
+      eventFilter === "all" || order.event_id.toString() === eventFilter;
+    const matchesPayment =
+      paymentFilter === "all" ||
+      order.payment_channel_id?.toString() === paymentFilter;
 
-    return matchesSearch && matchesStatus && matchesEvent && matchesPayment
-  })
+    return matchesSearch && matchesStatus && matchesEvent && matchesPayment;
+  });
 
   if (loading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-900">Orders Management</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Orders</h1>
         </div>
         <Card>
           <CardContent className="p-6">
@@ -164,20 +530,116 @@ export default function OrdersPage() {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Orders Management</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Orders</h1>
         <div className="flex space-x-2">
           <Button onClick={fetchOrders} variant="outline">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
+          <Button onClick={exportOrders} variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
+          <Button onClick={downloadTemplate} variant="outline">
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Download Format
+          </Button>
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            variant="outline"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Upload XLSX
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
         </div>
       </div>
+
+      {/* Upload Dialog - Direct Import */}
+      <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+        <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Preview & Import Data</DialogTitle>
+            <DialogDescription>
+              Periksa data sebelum import. Orders, order_items, attendees akan
+              dibuat, lalu tickets otomatis via trigger.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-sm text-gray-600">
+              Total rows: {uploadData.length}
+            </div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <SimpleTableHeader>No</SimpleTableHeader>
+                    <SimpleTableHeader>Customer Name</SimpleTableHeader>
+                    <SimpleTableHeader>Email</SimpleTableHeader>
+                    <SimpleTableHeader>Phone</SimpleTableHeader>
+                    <SimpleTableHeader>Event ID</SimpleTableHeader>
+                    <SimpleTableHeader>Ticket Type ID</SimpleTableHeader>
+                    <SimpleTableHeader>Quantity</SimpleTableHeader>
+                    <SimpleTableHeader>Amount</SimpleTableHeader>
+                    <SimpleTableHeader>Order Date</SimpleTableHeader>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {uploadData.slice(0, 20).map((row, index) => (
+                    <TableRow key={index}>
+                      <TableCell>{index + 1}</TableCell>
+                      <TableCell className="font-medium">
+                        {row.customer_name}
+                      </TableCell>
+                      <TableCell>{row.customer_email}</TableCell>
+                      <TableCell>{row.customer_phone_number}</TableCell>
+                      <TableCell>{row.event_id}</TableCell>
+                      <TableCell>{row.ticket_type_id}</TableCell>
+                      <TableCell>{row.quantity}</TableCell>
+                      <TableCell>{formatCurrency(row.final_amount)}</TableCell>
+                      <TableCell>{row.order_date}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {uploadData.length > 20 && (
+                <div className="text-sm text-gray-500 mt-2">
+                  Menampilkan 20 dari {uploadData.length} rows. Flow: Orders →
+                  Order Items → Attendees → Tickets (trigger).
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button
+                onClick={() => setUploadOpen(false)}
+                variant="outline"
+                disabled={importLoading}
+              >
+                Batal
+              </Button>
+              <Button
+                onClick={processDirectImport}
+                disabled={importLoading}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {importLoading ? "Importing..." : "Import ke Database"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader>
@@ -237,10 +699,11 @@ export default function OrdersPage() {
               </SelectContent>
             </Select>
 
-            <Button variant="outline" className="w-full bg-transparent">
-              <Filter className="h-4 w-4 mr-2" />
-              Reset Filter
-            </Button>
+            <div className="text-right">
+              <span className="text-sm font-medium text-gray-700">
+                Total: {filteredOrders.length} orders
+              </span>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -250,79 +713,102 @@ export default function OrdersPage() {
           <CardTitle>Daftar Orders ({filteredOrders.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <SimpleTableHeader>Order ID</SimpleTableHeader>
-                <SimpleTableHeader>Customer</SimpleTableHeader>
-                <SimpleTableHeader>Event</SimpleTableHeader>
-                <SimpleTableHeader>Amount</SimpleTableHeader>
-                <SimpleTableHeader>Payment Method</SimpleTableHeader>
-                <SimpleTableHeader>Status</SimpleTableHeader>
-                <SimpleTableHeader>Order Date</SimpleTableHeader>
-                <SimpleTableHeader>Aksi</SimpleTableHeader>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredOrders.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell>
-                    <div className="font-mono font-medium">#{order.id}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{order.customer_name}</div>
-                      <div className="text-sm text-gray-500">{order.customer_email}</div>
-                      {order.customer_phone && <div className="text-sm text-gray-500">{order.customer_phone}</div>}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium">{order.event_name}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{formatCurrency(order.final_amount)}</div>
-                      {order.discount_amount && order.discount_amount > 0 && (
-                        <div className="text-sm text-gray-500">Diskon: {formatCurrency(order.discount_amount)}</div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm">
-                      {order.payment_channel_name || "-"}
-                      {order.payment_channel_type && (
-                        <div className="text-xs text-gray-500">{order.payment_channel_type}</div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusBadgeVariant(order.status)}>{order.status.toUpperCase()}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm">{formatDate(order.order_date)}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex space-x-2">
-                      <Select value={order.status} onValueChange={(value) => updateOrderStatus(order.id, value)}>
-                        <SelectTrigger className="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="paid">Paid</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
-                          <SelectItem value="cancelled">Cancelled</SelectItem>
-                          <SelectItem value="failed">Failed</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <SimpleTableHeader>Order ID</SimpleTableHeader>
+                  <SimpleTableHeader>Customer</SimpleTableHeader>
+                  <SimpleTableHeader>Event</SimpleTableHeader>
+                  <SimpleTableHeader>Amount</SimpleTableHeader>
+                  <SimpleTableHeader>Payment Method</SimpleTableHeader>
+                  <SimpleTableHeader>Status</SimpleTableHeader>
+                  <SimpleTableHeader>Order Date</SimpleTableHeader>
+                  <SimpleTableHeader>Aksi</SimpleTableHeader>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredOrders.map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell>
+                      <div className="font-mono font-medium">#{order.id}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{order.customer_name}</div>
+                        <div className="text-sm text-gray-500">
+                          {order.customer_email}
+                        </div>
+                        {order.customer_phone && (
+                          <div className="text-sm text-gray-500">
+                            {order.customer_phone}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium">{order.event_name}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">
+                          {formatCurrency(order.final_amount)}
+                        </div>
+                        {order.discount_amount && order.discount_amount > 0 && (
+                          <div className="text-sm text-gray-500">
+                            Diskon: {formatCurrency(order.discount_amount)}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        {order.payment_channel_name || "-"}
+                        {order.payment_channel_type && (
+                          <div className="text-xs text-gray-500">
+                            {order.payment_channel_type}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusBadgeVariant(order.status)}>
+                        {order.status.toUpperCase()}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        {formatDate(order.order_date)}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex space-x-2">
+                        <Select
+                          value={order.status}
+                          onValueChange={(value) =>
+                            updateOrderStatus(order.id, value)
+                          }
+                        >
+                          <SelectTrigger className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="paid">Paid</SelectItem>
+                            <SelectItem value="completed">Completed</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                            <SelectItem value="failed">Failed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

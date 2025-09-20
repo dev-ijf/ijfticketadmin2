@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { sql } from "@/lib/database";
+import { getSql } from "@/lib/database";
 
 const STARSENDER_URL = process.env.STARSENDER_URL;
 const STARSENDER_TOKEN = process.env.STARSENDER_TOKEN;
@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Ambil semua baris pending
+    const sql = getSql();
     const rows = await sql`
       SELECT * FROM orders_temp
       WHERE upload_session_id = ${upload_session_id}
