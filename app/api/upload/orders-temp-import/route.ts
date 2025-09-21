@@ -149,11 +149,11 @@ export async function POST(req: NextRequest) {
           const attendeeResult = await sql`
             INSERT INTO order_item_attendees (
               order_item_id, attendee_name, attendee_email, attendee_phone_number,
-              custom_answers, created_at
+              custom_answers, created_at, barcode_id
             )
             VALUES (
               ${orderItemId}, ${row.customer_name}, ${row.customer_email}, ${row.customer_phone_number || null},
-              ${row.custom_answers ? JSON.stringify(row.custom_answers) : null}, NOW()
+              ${row.custom_answers ? JSON.stringify(row.custom_answers) : null}, NOW(), ${row.barcode_id || null}
             )
             RETURNING id
           `;

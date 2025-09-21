@@ -114,6 +114,8 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [eventFilter, setEventFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(10);
   const { toast } = useToast();
 
   // Upload states
@@ -758,6 +760,12 @@ export default function OrdersPage() {
     return matchesSearch && matchesStatus && matchesEvent && matchesPayment;
   });
 
+  const totalPages = Math.ceil(filteredOrders.length / pageSize);
+  const pagedOrders = filteredOrders.slice(
+    (page - 1) * pageSize,
+    page * pageSize,
+  );
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -1011,7 +1019,7 @@ export default function OrdersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredOrders.map((order) => (
+                {pagedOrders.map((order) => (
                   <TableRow key={order.id}>
                     <TableCell>
                       <div className="font-mono font-medium">#{order.id}</div>
@@ -1089,6 +1097,30 @@ export default function OrdersPage() {
                 ))}
               </TableBody>
             </Table>
+          </div>
+          {/* Pagination Controls */}
+          <div className="flex justify-between items-center mt-4">
+            <div className="text-sm text-gray-600">
+              Page {page} of {totalPages}
+            </div>
+            <div className="space-x-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                Previous
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+              >
+                Next
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
