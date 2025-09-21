@@ -202,9 +202,36 @@ export default function TicketsPage() {
         try {
           await updateCheckInStatus(ticket.id, true);
           beepSuccess();
+
+          // Fetch detailed ticket info with custom fields for success message
+          const detailResponse = await fetch(
+            `/api/tickets/${ticket.id}/details`,
+          );
+          let detailMessage = `Nama: ${ticket.attendee_name}`;
+
+          if (detailResponse.ok) {
+            const detailData = await detailResponse.json();
+            if (detailData.ticket_type_name) {
+              detailMessage += `<br/>Type: ${detailData.ticket_type_name}`;
+            }
+            if (
+              detailData.custom_fields &&
+              detailData.custom_fields.length > 0
+            ) {
+              detailData.custom_fields.forEach((field: any) => {
+                detailMessage += `<br/>${field.field_label}: ${field.answer_value}`;
+              });
+            }
+          } else {
+            // Fallback to basic info
+            if (ticket.ticket_type_name) {
+              detailMessage += `<br/>Type: ${ticket.ticket_type_name}`;
+            }
+          }
+
           setLastScanResult({
             status: "success",
-            message: `Check-in Berhasil: ${ticket.attendee_name}`,
+            message: detailMessage,
           });
           toast({
             title: "Check-in Berhasil",
@@ -600,7 +627,11 @@ export default function TicketsPage() {
                           : "bg-red-600"
                     }`}
                   >
-                    {lastScanResult.message}
+                    <div
+                      dangerouslySetInnerHTML={{
+                        __html: lastScanResult.message,
+                      }}
+                    />
                     <button
                       onClick={() => setLastScanResult(null)}
                       className="ml-4 text-xs underline text-white/80"

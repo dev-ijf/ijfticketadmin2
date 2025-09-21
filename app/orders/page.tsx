@@ -84,6 +84,7 @@ type UploadRow = {
   order_date: string;
   payment_channel_id: number;
   barcode_id?: string;
+  custom_answers?: { [key: string]: string };
 };
 
 type TempOrder = {
@@ -120,6 +121,8 @@ export default function OrdersPage() {
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadData, setUploadData] = useState<UploadRow[]>([]);
   const [importLoading, setImportLoading] = useState(false);
+  const [customFields, setCustomFields] = useState<any[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -234,10 +237,55 @@ export default function OrdersPage() {
     }
   };
 
+  // Fetch custom fields for selected event
+  const fetchCustomFields = async (eventId: number) => {
+    try {
+      const response = await fetch(
+        `/api/events/custom-fields?event_id=${eventId}`,
+      );
+      if (!response.ok) throw new Error("Failed to fetch custom fields");
+      const data = await response.json();
+      setCustomFields(data.custom_fields || []);
+    } catch (error: any) {
+      console.error("Error fetching custom fields:", error);
+      setCustomFields([]);
+    }
+  };
+
   // Download template Excel
-  const downloadTemplate = () => {
+  const downloadTemplate = async () => {
+    if (!selectedEventId) {
+      toast({
+        title: "Error",
+        description:
+          "Pilih event terlebih dahulu untuk generate template dengan custom fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Fetch custom fields for selected event
+    let eventCustomFields: any[] = [];
+    try {
+      const response = await fetch(
+        `/api/events/custom-fields?event_id=${selectedEventId}`,
+      );
+      if (!response.ok) throw new Error("Failed to fetch custom fields");
+      const data = await response.json();
+      eventCustomFields = data.custom_fields || [];
+    } catch (error: any) {
+      console.error("Error fetching custom fields:", error);
+      toast({
+        title: "Warning",
+        description:
+          "Gagal mengambil custom fields, template akan dibuat tanpa custom fields",
+        variant: "destructive",
+      });
+      eventCustomFields = [];
+    }
+
     // Create manual data structure to ensure proper column separation
-    const headers = [
+    const baseHeaders = [
       "customer_name",
       "customer_email",
       "customer_phone_number",
@@ -250,11 +298,17 @@ export default function OrdersPage() {
       "barcode_id",
     ];
 
-    const sampleData = [
+    // Add custom fields headers
+    const customFieldHeaders = eventCustomFields.map(
+      (field) => field.field_name,
+    );
+    const headers = [...baseHeaders, ...customFieldHeaders];
+
+    const baseSampleData = [
       "John Doe",
       "john@example.com",
       "081234567890",
-      1,
+      selectedEventId,
       1,
       2,
       150000,
@@ -263,7 +317,17 @@ export default function OrdersPage() {
       "SAMPLE123",
     ];
 
-    const instructionsData = [
+    // Add custom fields sample data
+    const customFieldSampleData = eventCustomFields.map((field) => {
+      if (field.options && field.options.length > 0) {
+        return field.options[0].option_value; // First option as sample
+      }
+      return `Sample ${field.field_label}`;
+    });
+
+    const sampleData = [...baseSampleData, ...customFieldSampleData];
+
+    const baseInstructions = [
       "Tips:",
       "- customer_name: Nama lengkap",
       "- customer_email: Email valid",
@@ -275,6 +339,24 @@ export default function OrdersPage() {
       "- order_date: Format YYYY-MM-DD",
       "- payment_channel_id: ID Payment Channel",
       "- barcode_id: Kode barcode (opsional)",
+    ];
+
+    // Add custom fields instructions
+    const customFieldInstructions = eventCustomFields.map((field) => {
+      let instruction = `- ${field.field_name}: ${field.field_label}`;
+      if (field.is_required) instruction += " (WAJIB)";
+      if (field.options && field.options.length > 0) {
+        const options = field.options
+          .map((opt: any) => opt.option_value)
+          .join(", ");
+        instruction += ` (Pilihan: ${options})`;
+      }
+      return instruction;
+    });
+
+    const instructionsData = [
+      ...baseInstructions,
+      ...customFieldInstructions,
       "Flow: Order → Order Items → Attendees → Tickets (trigger)",
     ];
 
@@ -309,18 +391,17 @@ export default function OrdersPage() {
 
     toast({
       title: "Template Downloaded",
-      description:
-        "Template Excel dengan instruksi berhasil didownload. Gunakan sheet 'Data' untuk input.",
+      description: `Template Excel dengan ${eventCustomFields.length} custom fields berhasil didownload.`,
     });
   };
 
   // Handle file upload
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: "array" });
@@ -332,6 +413,37 @@ export default function OrdersPage() {
         const headers = jsonData[0] as string[];
         const rows = jsonData.slice(1) as any[][];
 
+        // Get unique event IDs from the data to fetch their custom fields
+        const eventIds = [
+          ...new Set(
+            rows
+              .map((row) => parseInt(String(row[3] || "0")))
+              .filter((id) => id > 0),
+          ),
+        ];
+        const eventCustomFieldsMap: { [eventId: number]: any[] } = {};
+
+        // Fetch custom fields for all events in the Excel
+        for (const eventId of eventIds) {
+          try {
+            const response = await fetch(
+              `/api/events/custom-fields?event_id=${eventId}`,
+            );
+            if (response.ok) {
+              const data = await response.json();
+              eventCustomFieldsMap[eventId] = data.custom_fields || [];
+            } else {
+              eventCustomFieldsMap[eventId] = [];
+            }
+          } catch (err) {
+            console.error(
+              `Error fetching custom fields for event ${eventId}:`,
+              err,
+            );
+            eventCustomFieldsMap[eventId] = [];
+          }
+        }
+
         const parsedData: UploadRow[] = rows
           .filter((row) =>
             row.some(
@@ -341,7 +453,7 @@ export default function OrdersPage() {
           .map((row, index) => {
             try {
               // Mapping manual untuk menghindari masalah format
-              const rowData = {
+              const rowData: UploadRow = {
                 customer_name: String(row[0] || "").trim(),
                 customer_email: String(row[1] || "").trim(),
                 customer_phone_number: String(row[2] || "").trim(),
@@ -356,12 +468,58 @@ export default function OrdersPage() {
                 barcode_id: row[9] ? String(row[9]).trim() : undefined,
               };
 
+              // Parse custom fields (starting from column K = index 10)
+              const customAnswers: { [key: string]: string } = {};
+              const eventCustomFields =
+                eventCustomFieldsMap[rowData.event_id] || [];
+
+              // Parse custom fields based on the event's custom fields
+              eventCustomFields.forEach((field, fieldIndex) => {
+                const columnIndex = 10 + fieldIndex; // Starting from column K
+                const value = row[columnIndex];
+                if (value !== null && value !== undefined && value !== "") {
+                  customAnswers[field.field_name] = String(value).trim();
+                }
+              });
+
+              if (Object.keys(customAnswers).length > 0) {
+                rowData.custom_answers = customAnswers;
+              }
+
               // Validasi data
               if (!rowData.customer_name || !rowData.customer_email) {
                 throw new Error(
                   `Row ${index + 2}: Customer name dan email harus diisi`,
                 );
               }
+
+              // Validasi custom fields yang required
+              eventCustomFields.forEach((field) => {
+                if (field.is_required) {
+                  const value = customAnswers[field.field_name];
+                  if (!value || value.trim() === "") {
+                    throw new Error(
+                      `Row ${index + 2}: ${field.field_label} (${field.field_name}) wajib diisi`,
+                    );
+                  }
+
+                  // Validasi untuk dropdown - pastikan value ada dalam options
+                  if (
+                    field.field_type === "dropdown" &&
+                    field.options &&
+                    field.options.length > 0
+                  ) {
+                    const validOptions = field.options.map(
+                      (opt: any) => opt.option_value,
+                    );
+                    if (!validOptions.includes(value.trim())) {
+                      throw new Error(
+                        `Row ${index + 2}: ${field.field_label} harus salah satu dari: ${validOptions.join(", ")}`,
+                      );
+                    }
+                  }
+                }
+              });
 
               return rowData;
             } catch (error: any) {
@@ -382,11 +540,96 @@ export default function OrdersPage() {
         });
       }
     };
+
     reader.readAsArrayBuffer(file);
   };
 
-  // Process direct import (langsung tanpa temp)
+  // Process direct import using temp upload flow
   const processDirectImport = async () => {
+    if (uploadData.length === 0) {
+      toast({
+        title: "Error",
+        description: "Tidak ada data untuk diimport",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setImportLoading(true);
+    try {
+      // First upload to temp table
+      const uploadResponse = await fetch("/api/upload/orders-temp-upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          rows: uploadData,
+        }),
+      });
+
+      if (!uploadResponse.ok) {
+        const uploadError = await uploadResponse.json();
+        throw new Error(uploadError.error || "Upload failed");
+      }
+
+      const uploadResult = await uploadResponse.json();
+      console.log("Upload session created:", uploadResult.upload_session_id);
+
+      // Then process the import
+      const importResponse = await fetch("/api/upload/orders-temp-import", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          upload_session_id: uploadResult.upload_session_id,
+        }),
+      });
+
+      if (!importResponse.ok) {
+        const importError = await importResponse.json();
+        throw new Error(importError.error || "Import failed");
+      }
+
+      const importResult = await importResponse.json();
+      console.log("Import result:", importResult);
+
+      toast({
+        title: "Import Completed",
+        description: `Success: ${importResult.success}, Failed: ${importResult.failed}`,
+        variant: importResult.failed > 0 ? "destructive" : "default",
+      });
+
+      if (importResult.errors && importResult.errors.length > 0) {
+        console.error("Import errors:", importResult.errors);
+        // Show first few errors in toast
+        const firstErrors = importResult.errors.slice(0, 3).join("; ");
+        toast({
+          title: "Import Errors",
+          description:
+            firstErrors + (importResult.errors.length > 3 ? "..." : ""),
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error("Import process error:", error);
+      toast({
+        title: "Import Failed",
+        description: error.message || "Unknown error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setImportLoading(false);
+    }
+
+    setUploadOpen(false);
+    // Refresh orders data
+    await fetchOrders();
+  };
+
+  // Legacy direct import method (kept for reference)
+  const legacyDirectImport = async () => {
     if (uploadData.length === 0) {
       toast({
         title: "Error",
@@ -421,6 +664,7 @@ export default function OrdersPage() {
               order_date: row.order_date,
               payment_channel_id: row.payment_channel_id,
               barcode_id: row.barcode_id,
+              custom_answers: row.custom_answers,
             }),
           });
 
@@ -537,7 +781,7 @@ export default function OrdersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Orders</h1>
-        <div className="flex space-x-2">
+        <div className="flex space-x-2 items-center">
           <Button onClick={fetchOrders} variant="outline">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
@@ -546,7 +790,27 @@ export default function OrdersPage() {
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button onClick={downloadTemplate} variant="outline">
+          <select
+            value={selectedEventId || ""}
+            onChange={(e) =>
+              setSelectedEventId(
+                e.target.value ? parseInt(e.target.value) : null,
+              )
+            }
+            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Pilih Event untuk Template</option>
+            {events.map((event) => (
+              <option key={event.id} value={event.id}>
+                {event.name}
+              </option>
+            ))}
+          </select>
+          <Button
+            onClick={downloadTemplate}
+            variant="outline"
+            disabled={!selectedEventId}
+          >
             <FileSpreadsheet className="h-4 w-4 mr-2" />
             Download Format
           </Button>
@@ -594,6 +858,7 @@ export default function OrdersPage() {
                     <SimpleTableHeader>Quantity</SimpleTableHeader>
                     <SimpleTableHeader>Amount</SimpleTableHeader>
                     <SimpleTableHeader>Order Date</SimpleTableHeader>
+                    <SimpleTableHeader>Custom Fields</SimpleTableHeader>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -610,6 +875,24 @@ export default function OrdersPage() {
                       <TableCell>{row.quantity}</TableCell>
                       <TableCell>{formatCurrency(row.final_amount)}</TableCell>
                       <TableCell>{row.order_date}</TableCell>
+                      <TableCell>
+                        {row.custom_answers ? (
+                          <div className="text-xs">
+                            {Object.entries(row.custom_answers).map(
+                              ([key, value]) => (
+                                <div key={key} className="mb-1">
+                                  <span className="font-medium">{key}:</span>{" "}
+                                  {value}
+                                </div>
+                              ),
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">
+                            No custom fields
+                          </span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

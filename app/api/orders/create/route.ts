@@ -37,6 +37,7 @@ export async function POST(request: Request) {
       order_date,
       payment_channel_id,
       barcode_id,
+      custom_answers,
     } = body;
 
     console.log("Creating order with data:", body);
@@ -169,7 +170,7 @@ export async function POST(request: Request) {
         )
         VALUES (
           ${orderItemId}, ${customer_name}, ${customer_email}, ${customer_phone || null},
-          NULL, NOW()
+          ${custom_answers ? JSON.stringify(custom_answers) : null}, NOW()
         )
         RETURNING id
       `;

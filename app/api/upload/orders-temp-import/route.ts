@@ -37,8 +37,19 @@ export async function POST(req: NextRequest) {
     let failed = 0;
     const errors: string[] = [];
 
+    console.log(
+      `Processing ${rows?.length || 0} rows for upload_session_id: ${upload_session_id}`,
+    );
+
     for (const row of rows || []) {
       try {
+        console.log(`Processing row ${row.row_number}:`, {
+          customer_name: row.customer_name,
+          customer_email: row.customer_email,
+          event_id: row.event_id,
+          ticket_type_id: row.ticket_type_id,
+          custom_answers: row.custom_answers,
+        });
         // 1. Upsert customer
         let customerId: number | null = null;
         if (row.customer_email || row.customer_phone_number) {
@@ -101,31 +112,75 @@ export async function POST(req: NextRequest) {
         `;
 
         const orderId = (orderData as any)[0].id;
+        console.log(`Created order with ID: ${orderId}`);
 
-        // 3. Ambil tickets_per_purchase dari ticket_types
+        // 3. Get tickets_per_purchase from ticket_types to calculate effective_ticket_count
         const ticketTypeResult = await sql`
           SELECT tickets_per_purchase FROM ticket_types WHERE id = ${row.ticket_type_id} LIMIT 1
         `;
-
         const ticketsPerPurchase =
           (ticketTypeResult as any)[0]?.tickets_per_purchase || 1;
-        const totalTickets = (row.quantity || 1) * ticketsPerPurchase;
+        const effectiveTicketCount = (row.quantity || 1) * ticketsPerPurchase;
 
-        // 4. Insert tickets (sebanyak totalTickets)
-        for (let i = 0; i < totalTickets; i++) {
-          await sql`
-            INSERT INTO tickets (
-              attendee_name, attendee_email, ticket_type_id, order_id,
-              ${row.barcode_id ? "ticket_code," : ""} created_at, updated_at
+        // 4. Create order_item
+        const orderItemResult = await sql`
+          INSERT INTO order_items (
+            order_id, ticket_type_id, quantity, price_per_ticket, effective_ticket_count, created_at
+          )
+          VALUES (
+            ${orderId}, ${row.ticket_type_id}, ${row.quantity || 1}, ${row.final_amount}, ${effectiveTicketCount}, NOW()
+          )
+          RETURNING id
+        `;
+
+        const orderItemId = (orderItemResult as any)[0].id;
+        console.log(
+          `Created order_item with ID: ${orderItemId}, effective_ticket_count: ${effectiveTicketCount}`,
+        );
+
+        // 5. Create order_item_attendees with custom_answers (one for each quantity)
+        // The database trigger will automatically create tickets from attendees
+        for (let i = 0; i < (row.quantity || 1); i++) {
+          console.log(
+            `Creating attendee ${i + 1} of ${row.quantity || 1} with custom_answers:`,
+            row.custom_answers,
+          );
+
+          const attendeeResult = await sql`
+            INSERT INTO order_item_attendees (
+              order_item_id, attendee_name, attendee_email, attendee_phone_number,
+              custom_answers, created_at
             )
             VALUES (
-              ${row.customer_name}, ${row.customer_email}, ${row.ticket_type_id}, ${orderId},
-              ${row.barcode_id ? `${row.barcode_id},` : ""} NOW(), NOW()
+              ${orderItemId}, ${row.customer_name}, ${row.customer_email}, ${row.customer_phone_number || null},
+              ${row.custom_answers ? JSON.stringify(row.custom_answers) : null}, NOW()
             )
+            RETURNING id
           `;
+
+          console.log(
+            `Created attendee with ID: ${(attendeeResult as any)[0]?.id}`,
+          );
         }
 
-        // 5. Ambil data order lengkap (join customers, events)
+        // Manually call trigger function to create tickets for paid order
+        console.log(`Calling trigger function for order ID: ${orderId}`);
+        try {
+          await sql`
+            SELECT public.create_tickets_for_paid_order(${orderId})
+          `;
+          console.log(
+            `Trigger function completed successfully for order ${orderId}`,
+          );
+        } catch (triggerError: any) {
+          console.error(
+            `Trigger function failed for order ${orderId}:`,
+            triggerError,
+          );
+          throw new Error(`Failed to create tickets: ${triggerError.message}`);
+        }
+
+        // 6. Ambil data order lengkap (join customers, events)
         const orderFull = await sql`
           SELECT o.*, c.name as customer_name, c.phone_number as customer_phone,
                  e.name as event_name, e.location as event_location, e.start_date, e.end_date
@@ -136,84 +191,10 @@ export async function POST(req: NextRequest) {
           LIMIT 1
         `;
 
-        // 6. WhatsApp paid & log
-        let waError: string | null = null;
-        let waRequestPayload = null;
-        let waResponsePayload = null;
-        let waStatus: "sent" | "failed" = "sent";
-        let waBody = "";
-        const templateId = 4;
-
-        // Fetch template
-        const template = await sql`
-          SELECT * FROM notification_templates WHERE id = ${templateId} LIMIT 1
-        `;
-
-        if (template.length > 0) {
-          waBody = template[0].body;
-          // Ganti ticket_link pakai CHILD_URL
-          const ticket_link = `${CHILD_URL}/payment/${(orderFull as any)[0].order_reference}`;
-          const vars = {
-            "{{customer.name}}": (orderFull as any)[0].customer_name || "-",
-            "{{event.name}}": (orderFull as any)[0].event_name || "-",
-            "{{event_name}}": (orderFull as any)[0].event_name || "-",
-            "{{event_location}}": (orderFull as any)[0].event_location || "-",
-            "{{event_start_date}}": formatEventDate(
-              (orderFull as any)[0].start_date,
-              (orderFull as any)[0].end_date,
-            ),
-            "{{order.order_reference}}": (orderFull as any)[0].order_reference,
-            "{{ticket_link}}": ticket_link,
-          };
-          Object.entries(vars).forEach(([k, v]) => {
-            waBody = waBody.replaceAll(k, String(v));
-          });
-
-          const phone = (orderFull as any)[0].customer_phone || "";
-          waRequestPayload = {
-            messageType: "text",
-            to: phone,
-            body: waBody,
-          };
-
-          try {
-            if (!STARSENDER_URL || !STARSENDER_TOKEN)
-              throw new Error("Konfigurasi WhatsApp (env) belum di-set.");
-            if (!phone) throw new Error("Nomor HP customer tidak ada.");
-
-            const waRes = await fetch(STARSENDER_URL, {
-              method: "POST",
-              headers: {
-                Authorization: STARSENDER_TOKEN,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(waRequestPayload),
-            });
-            waResponsePayload = await waRes.json().catch(() => null);
-            if (!waRes.ok) {
-              waError = waResponsePayload || (await waRes.text());
-              waStatus = "failed";
-            }
-          } catch (err: any) {
-            waError = err.message;
-            waStatus = "failed";
-          }
-
-          // Log ke notification_logs
-          await sql`
-            INSERT INTO notification_logs (
-              order_reference, channel, trigger_on, recipient_phone,
-              body, request_payload, response_payload, created_at, updated_at
-            )
-            VALUES (
-              ${(orderFull as any)[0].order_reference}, 'whatsapp', 'paid', null, ${phone},
-              ${waBody}, ${JSON.stringify(waRequestPayload)}, ${JSON.stringify(waResponsePayload)}, NOW(), NOW()
-            )
-          `;
-
-          if (waStatus === "failed")
-            throw new Error("Gagal kirim WhatsApp: " + (waError || ""));
-        }
+        // Skip WhatsApp notifications - focus on trigger functionality only
+        console.log(
+          `Skipping WhatsApp notification for order: ${(orderFull as any)[0].order_reference}`,
+        );
 
         // 7. Update status sukses
         await sql`
@@ -222,11 +203,13 @@ export async function POST(req: NextRequest) {
           WHERE id = ${row.id}
         `;
         success++;
+        console.log(`Row ${row.row_number} processed successfully`);
 
         console.log(
-          "[v0] WhatsApp messaging enabled - bulk import processed successfully with notification",
+          "[v0] Bulk import processed successfully - tickets generated via trigger",
         );
       } catch (err: any) {
+        console.error(`Error processing row ${row.row_number}:`, err);
         failed++;
         errors.push(`Row ${row.row_number}: ${err.message}`);
         await sql`
@@ -237,8 +220,28 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    console.log(`Import completed. Success: ${success}, Failed: ${failed}`);
+    if (errors.length > 0) {
+      console.error("Import errors:", errors);
+    }
+
+    // FALLBACK: Check and fix missing custom field answers after all processing
+    if (success > 0) {
+      console.log("Running fallback check for missing custom field answers...");
+      try {
+        await sql`
+          SELECT public.fallback_insert_custom_field_answers()
+        `;
+        console.log("Fallback custom field insert completed successfully");
+      } catch (fallbackError: any) {
+        console.error("Fallback custom field insert failed:", fallbackError);
+        // Don't fail the whole import for fallback errors
+      }
+    }
+
     return NextResponse.json({ success, failed, errors });
   } catch (err: any) {
+    console.error("Import process error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

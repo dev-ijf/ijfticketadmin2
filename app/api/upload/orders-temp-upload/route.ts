@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
         INSERT INTO orders_temp (
           upload_session_id, row_number, customer_name, customer_email, customer_phone_number,
           event_id, ticket_type_id, quantity, final_amount, order_date, payment_channel_id,
-          barcode_id, import_status, error_message, created_at, updated_at
+          barcode_id, custom_answers, import_status, error_message, created_at, updated_at
         )
         VALUES (
           ${upload_session_id}, ${idx + 1}, ${row.customer_name || null}, ${row.customer_email || null},
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
           ${row.ticket_type_id ? Number(row.ticket_type_id) : null}, ${row.quantity ? Number(row.quantity) : 1},
           ${row.final_amount ? Number(row.final_amount) : null}, ${row.order_date || null},
           ${row.payment_channel_id ? Number(row.payment_channel_id) : null}, ${row.barcode_id || null},
-          'pending', null, NOW(), NOW()
+          ${row.custom_answers ? JSON.stringify(row.custom_answers) : null}, 'pending', null, NOW(), NOW()
         )
       `;
     }
