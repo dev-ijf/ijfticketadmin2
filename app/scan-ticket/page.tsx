@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -48,7 +48,6 @@ type Ticket = {
   order_reference: string | null;
   event_id: number | null;
   event_name: string | null;
-  custom_data?: Record<string, any>;
 };
 
 type ExportData = {
@@ -60,7 +59,6 @@ type ExportData = {
   "Check-in Status": string;
   "Check-in Date": string;
   "Created Date": string;
-  [key: string]: any; // Allow dynamic custom fields
 };
 
 function ScannerHtml5Qrcode({
@@ -119,11 +117,13 @@ export default function TicketsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [eventFilter, setEventFilter] = useState<string>("all");
   const [events, setEvents] = useState<{ id: number; name: string }[]>([]);
-  const [customHeaders, setCustomHeaders] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
   const { toast } = useToast();
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [ticketTypes, setTicketTypes] = useState<
+    { id: number; name: string }[]
+  >([]);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isProcessingScan, setIsProcessingScan] = useState(false);
   const [lastScanResult, setLastScanResult] = useState<{
@@ -135,69 +135,18 @@ export default function TicketsPage() {
   const [exportLoading, setExportLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const fetchTickets = useCallback(
-    async (currentEventFilter = "all") => {
-      setLoading(true);
-      try {
-        console.log(`=== FETCHING TICKETS (Event: ${currentEventFilter}) ===`);
-        const url = new URL("/api/tickets", window.location.origin);
-        url.searchParams.set("t", Date.now().toString());
-        url.searchParams.set("refresh", refreshKey.toString());
-
-        if (currentEventFilter !== "all") {
-          url.searchParams.set("eventId", currentEventFilter);
-        }
-
-        const response = await fetch(url.toString(), {
-          method: "GET",
-          cache: "no-store",
-          headers: {
-            "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
-            Pragma: "no-cache",
-            Expires: "0",
-          },
-        });
-
-        if (!response.ok) throw new Error("Failed to fetch tickets");
-        const data = await response.json();
-
-        if (currentEventFilter !== "all" && data.length > 0) {
-          const allHeaders = new Set<string>();
-          data.forEach((ticket: Ticket) => {
-            if (ticket.custom_data) {
-              Object.keys(ticket.custom_data).forEach((key) => {
-                allHeaders.add(key);
-              });
-            }
-          });
-          setCustomHeaders(Array.from(allHeaders));
-        } else {
-          setCustomHeaders([]);
-        }
-
-        setTickets(data);
-      } catch (error) {
-        console.error("Error fetching tickets:", error);
-        toast({
-          title: "Error",
-          description: "Gagal memuat data tickets",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    },
-    [refreshKey, toast],
-  );
-
-  const forceRefresh = useCallback(async (delay = 0) => {
+  // Force refresh utility function
+  const forceRefresh = async (delay = 0) => {
     if (delay > 0) {
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
     console.log("=== FORCE REFRESH TRIGGERED ===");
     setRefreshKey((prev) => prev + 1);
-  }, []);
+    setTickets([]);
+    await fetchTickets();
+  };
 
+  // Beep sound for success and error
   const beepSuccess = () => {
     const ctx = new (window.AudioContext ||
       (window as any).webkitAudioContext)();
@@ -205,7 +154,7 @@ export default function TicketsPage() {
     const g = ctx.createGain();
     o.type = "sine";
     o.frequency.value = 880;
-    g.gain.value = 0.7;
+    g.gain.value = 0.7; // lebih keras
     o.connect(g);
     g.connect(ctx.destination);
     o.start();
@@ -221,7 +170,7 @@ export default function TicketsPage() {
     const g = ctx.createGain();
     o.type = "square";
     o.frequency.value = 220;
-    g.gain.value = 0.5;
+    g.gain.value = 0.5; // lebih keras
     o.connect(g);
     g.connect(ctx.destination);
     o.start();
@@ -231,6 +180,7 @@ export default function TicketsPage() {
     }, 250);
   };
 
+  // Handler untuk error scanner
   const handleError = (err: any) => {
     setCameraError(err?.message || "Gagal mengakses kamera");
     toast({
@@ -240,55 +190,7 @@ export default function TicketsPage() {
     });
   };
 
-  const updateCheckInStatus = async (
-    ticketId: number,
-    isCheckedIn: boolean,
-  ) => {
-    try {
-      console.log(
-        `Updating ticket ${ticketId} to ${isCheckedIn ? "checked-in" : "checked-out"}`,
-      );
-
-      const requestBody = { ticketId, isCheckedIn };
-      console.log("Sending update request:", requestBody);
-
-      const response = await fetch(`/api/tickets?t=${Date.now()}`, {
-        method: "PUT",
-        cache: "no-store",
-        headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      const result = await response.json();
-      console.log("Update response status:", response.status);
-      console.log("Update response body:", result);
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to update ticket");
-      }
-
-      toast({
-        title: "Berhasil",
-        description: `Ticket berhasil ${isCheckedIn ? "check-in" : "check-out"}`,
-      });
-
-      console.log("=== AFTER UPDATE - REFRESHING DATA ===");
-      // Force refresh with utility function
-      await forceRefresh(300);
-      console.log("=== DATA REFRESH COMPLETED ===");
-    } catch (error: any) {
-      console.error("Error updating check-in status:", error);
-      toast({
-        title: "Error",
-        description: error?.message || "Gagal memperbarui status check-in",
-        variant: "destructive",
-      });
-    }
-  };
-
+  // Add handler for QR/barcode scan
   const handleScan = async (data: string) => {
     if (isProcessingScan) return;
     setIsProcessingScan(true);
@@ -370,55 +272,54 @@ export default function TicketsPage() {
     setIsProcessingScan(false);
   };
 
+  // Function to export tickets to Excel
   const exportToExcel = async () => {
     setExportLoading(true);
     try {
-      const exportData: ExportData[] = filteredTickets.map((ticket) => {
-        const baseData: ExportData = {
-          "Ticket Code": ticket.ticket_code,
-          "Attendee Name": ticket.attendee_name,
-          "Attendee Email": ticket.attendee_email || "",
-          "Ticket Type": ticket.ticket_type_name || "",
-          "Event Name": ticket.event_name || "",
-          "Check-in Status": ticket.is_checked_in
-            ? "Checked In"
-            : "Not Checked In",
-          "Check-in Date": ticket.checked_in_at
-            ? new Date(ticket.checked_in_at).toLocaleString("id-ID")
-            : "",
-          "Created Date": new Date(ticket.created_at).toLocaleString("id-ID"),
-        };
-        if (customHeaders.length > 0 && ticket.custom_data) {
-          customHeaders.forEach((header) => {
-            baseData[header] = ticket.custom_data![header] || "";
-          });
-        }
-        return baseData;
-      });
+      // Prepare data for export
+      const exportData: ExportData[] = tickets.map((ticket) => ({
+        "Ticket Code": ticket.ticket_code,
+        "Attendee Name": ticket.attendee_name,
+        "Attendee Email": ticket.attendee_email || "",
+        "Ticket Type": ticket.ticket_type_name || "",
+        "Event Name": ticket.event_name || "",
+        "Check-in Status": ticket.is_checked_in
+          ? "Checked In"
+          : "Not Checked In",
+        "Check-in Date": ticket.checked_in_at
+          ? new Date(ticket.checked_in_at).toLocaleString("id-ID")
+          : "",
+        "Created Date": new Date(ticket.created_at).toLocaleString("id-ID"),
+      }));
 
+      // Create workbook and worksheet
       const workbook = XLSX.utils.book_new();
       const worksheet = XLSX.utils.json_to_sheet(exportData);
 
+      // Set column widths
       const columnWidths = [
-        { wch: 15 },
-        { wch: 25 },
-        { wch: 30 },
-        { wch: 20 },
-        { wch: 25 },
-        { wch: 15 },
-        { wch: 20 },
-        { wch: 20 },
-        ...customHeaders.map(() => ({ wch: 20 })),
+        { wch: 15 }, // Ticket Code
+        { wch: 25 }, // Attendee Name
+        { wch: 30 }, // Attendee Email
+        { wch: 20 }, // Ticket Type
+        { wch: 25 }, // Event Name
+        { wch: 15 }, // Check-in Status
+        { wch: 20 }, // Check-in Date
+        { wch: 20 }, // Created Date
       ];
       worksheet["!cols"] = columnWidths;
 
+      // Add worksheet to workbook
       XLSX.utils.book_append_sheet(workbook, worksheet, "Tickets");
+
+      // Generate file and download
       const fileName = `tickets_export_${new Date().toISOString().split("T")[0]}.xlsx`;
       XLSX.writeFile(workbook, fileName);
 
       toast({
         title: "Export Berhasil",
         description: `Berhasil mengexport ${exportData.length} data tickets`,
+        variant: "default",
       });
     } catch (error) {
       console.error("Error exporting tickets:", error);
@@ -432,26 +333,181 @@ export default function TicketsPage() {
     }
   };
 
+  useEffect(() => {
+    fetchTickets();
+    fetchTicketTypes();
+    fetchEvents();
+  }, []);
+
+  // Add interval to refresh data every 5 seconds for realtime updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log("Auto-refreshing tickets data...");
+      fetchTickets();
+    }, 5000); // 5 seconds for realtime
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Add window focus handler to refresh when user returns to tab
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log("Window focused - refreshing data");
+      fetchTickets();
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log("Tab became visible - refreshing data");
+        fetchTickets();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  // Debug: Log tickets state changes
+  useEffect(() => {
+    console.log("Tickets state updated:", tickets.length, "tickets");
+    console.log(
+      "Sample ticket states:",
+      tickets.slice(0, 3).map((t) => ({
+        id: t.id,
+        code: t.ticket_code,
+        checked_in: t.is_checked_in,
+        checked_in_at: t.checked_in_at,
+      })),
+    );
+  }, [tickets]);
+
+  const fetchTickets = async () => {
+    try {
+      console.log("=== FETCHING TICKETS ===");
+      console.log("Current time:", new Date().toISOString());
+
+      const response = await fetch(
+        `/api/tickets?t=${Date.now()}&refresh=${refreshKey}`,
+        {
+          method: "GET",
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+            Pragma: "no-cache",
+            Expires: "0",
+          },
+        },
+      );
+
+      if (!response.ok) throw new Error("Failed to fetch tickets");
+      const data = await response.json();
+
+      console.log(`Fetched ${data.length} tickets from database`);
+      console.log(
+        "First 5 tickets from DB:",
+        data.slice(0, 5).map((t) => ({
+          id: t.id,
+          code: t.ticket_code,
+          checked_in: t.is_checked_in,
+          checked_in_at: t.checked_in_at,
+        })),
+      );
+
+      // Set fresh data immediately
+      setTickets([...data]);
+      console.log(
+        "Tickets state updated with fresh data at:",
+        new Date().toISOString(),
+      );
+    } catch (error) {
+      console.error("Error fetching tickets:", error);
+      toast({
+        title: "Error",
+        description: "Gagal memuat data tickets",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTicketTypes = async () => {
+    try {
+      const response = await fetch("/api/ticket-types");
+      if (!response.ok) throw new Error("Failed to fetch ticket types");
+      const data = await response.json();
+      setTicketTypes(data || []);
+    } catch (error) {
+      console.error("Error fetching ticket types:", error);
+    }
+  };
+
   const fetchEvents = async () => {
     try {
       const response = await fetch("/api/events");
       if (!response.ok) throw new Error("Failed to fetch events");
-      setEvents((await response.json()) || []);
+      const data = await response.json();
+      setEvents(data || []);
     } catch (error) {
       console.error("Error fetching events:", error);
     }
   };
 
-  useEffect(() => {
-    fetchEvents();
-  }, []);
+  const updateCheckInStatus = async (
+    ticketId: number,
+    isCheckedIn: boolean,
+  ) => {
+    try {
+      console.log(
+        `Updating ticket ${ticketId} to ${isCheckedIn ? "checked-in" : "checked-out"}`,
+      );
 
-  useEffect(() => {
-    fetchTickets(eventFilter);
-  }, [eventFilter, refreshKey, fetchTickets]);
+      const requestBody = { ticketId, isCheckedIn };
+      console.log("Sending update request:", requestBody);
+
+      const response = await fetch(`/api/tickets?t=${Date.now()}`, {
+        method: "PUT",
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const result = await response.json();
+      console.log("Update response status:", response.status);
+      console.log("Update response body:", result);
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to update ticket");
+      }
+
+      toast({
+        title: "Berhasil",
+        description: `Ticket berhasil ${isCheckedIn ? "check-in" : "check-out"}`,
+      });
+
+      console.log("=== AFTER UPDATE - REFRESHING DATA ===");
+      // Force refresh with utility function
+      await forceRefresh(300);
+      console.log("=== DATA REFRESH COMPLETED ===");
+    } catch (error: any) {
+      console.error("Error updating check-in status:", error);
+      toast({
+        title: "Error",
+        description: error?.message || "Gagal memperbarui status check-in",
+        variant: "destructive",
+      });
+    }
+  };
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return "";
     return new Date(dateString).toLocaleDateString("id-ID", {
       year: "numeric",
       month: "short",
@@ -462,37 +518,44 @@ export default function TicketsPage() {
   };
 
   const filteredTickets = tickets.filter((ticket) => {
-    const searchLower = searchTerm.toLowerCase();
     const matchesSearch =
-      ticket.ticket_code.toLowerCase().includes(searchLower) ||
-      ticket.attendee_name.toLowerCase().includes(searchLower) ||
+      ticket.ticket_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ticket.attendee_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (ticket.attendee_email &&
-        ticket.attendee_email.toLowerCase().includes(searchLower)) ||
-      (ticket.order_reference &&
-        ticket.order_reference.toLowerCase().includes(searchLower));
+        ticket.attendee_email.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesStatus =
       statusFilter === "all" ||
       (statusFilter === "checked_in" && ticket.is_checked_in) ||
       (statusFilter === "not_checked_in" && !ticket.is_checked_in);
 
-    return matchesSearch && matchesStatus;
+    const matchesEvent =
+      eventFilter === "all" ||
+      (ticket.event_id && ticket.event_id.toString() === eventFilter);
+
+    return matchesSearch && matchesStatus && matchesEvent;
   });
 
+  // Pagination logic
   const totalPages = Math.ceil(filteredTickets.length / pageSize);
   const pagedTickets = filteredTickets.slice(
     (page - 1) * pageSize,
     page * pageSize,
   );
 
-  const checkedInCount = tickets.filter((t) => t.is_checked_in).length;
-  const notCheckedInCount = tickets.length - checkedInCount;
-  const totalCount = tickets.length;
+  // Hitung summary check-in
+  const checkedInCount = filteredTickets.filter((t) => t.is_checked_in).length;
+  const notCheckedInCount = filteredTickets.filter(
+    (t) => !t.is_checked_in,
+  ).length;
+  const totalCount = filteredTickets.length;
 
   if (loading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold text-gray-900">Tickets</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-gray-900">Scan Tickets</h1>
+        </div>
         <Card>
           <CardContent className="p-6">
             <div className="animate-pulse space-y-4">
@@ -509,11 +572,24 @@ export default function TicketsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Tickets</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Scan</h1>
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={() => fetchTickets(eventFilter)}
+            onClick={() => {
+              console.log("Manual refresh triggered");
+              console.log("Current tickets in state:", tickets.length);
+              console.log(
+                "Sample current state:",
+                tickets.slice(0, 3).map((t) => ({
+                  id: t.id,
+                  code: t.ticket_code,
+                  checked_in: t.is_checked_in,
+                })),
+              );
+              setLoading(true);
+              forceRefresh().finally(() => setLoading(false));
+            }}
             disabled={loading}
           >
             {loading ? "Refreshing..." : "🔄 Refresh"}
@@ -526,57 +602,21 @@ export default function TicketsPage() {
             <Download className="h-4 w-4 mr-2" />
             {exportLoading ? "Exporting..." : "Export Excel"}
           </Button>
-          {/* <Dialog
-            open={scannerOpen}
-            onOpenChange={(open) => {
-              setScannerOpen(open);
-              if (!open) {
-                setLastScanResult(null);
-                setCameraError(null);
-                setIsProcessingScan(false);
-              }
-            }}
-          >
+          <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
             <DialogTrigger asChild>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (!scannerOpen) {
-                    setScannerOpen(true);
-                    setLastScanResult(null);
-                    setCameraError(null);
-                    setIsProcessingScan(false);
-                  }
-                }}
-              >
+              <Button variant="outline" onClick={() => setScannerOpen(true)}>
                 Scan QR/Barcode
               </Button>
             </DialogTrigger>
             <DialogContent className="w-full max-w-3xl h-[75vh] flex flex-col justify-center items-center">
               <DialogHeader>
-                <DialogTitle className="flex items-center justify-between w-full">
-                  <span>Scan QR/Barcode Ticket</span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setScannerOpen(false)}
-                    className="ml-4"
-                  >
-                    Tutup
-                  </Button>
-                </DialogTitle>
-                <DialogDescription className="text-sm text-gray-600">
+                <DialogTitle>Scan QR/Barcode Ticket</DialogTitle>
+                <DialogDescription>
                   Arahkan kamera ke QR code/barcode pada tiket untuk check-in.
-                  <br />
-                  Scanner akan tetap terbuka untuk scan berkelanjutan.
                 </DialogDescription>
               </DialogHeader>
               <div className="flex flex-col items-center w-full h-full justify-center">
-                {cameraError && (
-                  <div className="mb-4 px-4 py-2 rounded bg-red-100 text-red-700 text-center">
-                    {cameraError}
-                  </div>
-                )}
+                {/* Feedback visual hasil scan */}
                 {lastScanResult && (
                   <div
                     className={`mb-4 px-4 py-2 rounded text-white font-bold text-center shadow-lg ${
@@ -614,16 +654,15 @@ export default function TicketsPage() {
                 )}
               </div>
             </DialogContent>
-          </Dialog> */}
-          {/* <Button
+          </Dialog>
+          <Button
             variant="destructive"
             onClick={() => setBulkCheckoutOpen(true)}
           >
             Checkout Massal
-          </Button> */}
+          </Button>
         </div>
       </div>
-
       {/* Dialog konfirmasi checkout massal */}
       <Dialog open={bulkCheckoutOpen} onOpenChange={setBulkCheckoutOpen}>
         <DialogContent>
@@ -651,19 +690,30 @@ export default function TicketsPage() {
               onClick={async () => {
                 setBulkLoading(true);
                 try {
+                  // Ambil semua id tiket yang sudah check-in dari filtered tickets
                   const checkedInTickets = filteredTickets.filter(
                     (t) => t.is_checked_in,
                   );
                   const ids = checkedInTickets.map((t) => t.id);
 
+                  console.log(`Bulk checkout: ${ids.length} tickets`, ids);
+
                   if (ids.length === 0) {
                     toast({
                       title:
                         "Tidak ada tiket yang sudah check-in untuk di-checkout",
+                      description:
+                        "Pastikan ada tiket dengan status 'Checked In' yang perlu di-checkout",
                       variant: "destructive",
                     });
+                    setBulkCheckoutOpen(false);
+                    setBulkLoading(false);
                     return;
                   }
+
+                  // Update massal
+                  const requestBody = { ids, isCheckedIn: false };
+                  console.log("Bulk checkout request:", requestBody);
 
                   const response = await fetch(`/api/tickets?t=${Date.now()}`, {
                     method: "PUT",
@@ -672,10 +722,16 @@ export default function TicketsPage() {
                       "Content-Type": "application/json",
                       "Cache-Control": "no-cache, no-store, must-revalidate",
                     },
-                    body: JSON.stringify({ ids, isCheckedIn: false }),
+                    body: JSON.stringify(requestBody),
                   });
 
                   const result = await response.json();
+                  console.log(
+                    "Bulk checkout response status:",
+                    response.status,
+                  );
+                  console.log("Bulk checkout response body:", result);
+
                   if (!response.ok) {
                     throw new Error(result.error || "Failed to update tickets");
                   }
@@ -683,12 +739,15 @@ export default function TicketsPage() {
                   toast({
                     title: "Sukses",
                     description: `Berhasil checkout massal ${ids.length} tiket.`,
+                    variant: "default",
                   });
 
-                  // Refresh data after bulk operation
-                  setTimeout(() => {
-                    fetchTickets(eventFilter);
-                  }, 500);
+                  console.log(
+                    "=== BULK CHECKOUT COMPLETED - REFRESHING DATA ====",
+                  );
+                  // Force refresh with utility function
+                  await forceRefresh(500);
+                  console.log("=== BULK REFRESH COMPLETED ===");
                 } catch (err: any) {
                   console.error("Bulk checkout error:", err);
                   toast({
@@ -708,7 +767,6 @@ export default function TicketsPage() {
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Summary check-in dengan card */}
       <div className="flex flex-wrap gap-2 items-stretch">
         <div
@@ -756,7 +814,7 @@ export default function TicketsPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
-                  placeholder="Cari berdasarkan ticket code, nama, email, atau order ref..."
+                  placeholder="Cari berdasarkan ticket code, nama attendee, atau order reference..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 w-full"
@@ -776,13 +834,7 @@ export default function TicketsPage() {
               </Select>
             </div>
             <div className="w-full md:w-64 mt-2 md:mt-0">
-              <Select
-                value={eventFilter}
-                onValueChange={(value) => {
-                  setEventFilter(value);
-                  setPage(1); // Reset page when filter changes
-                }}
-              >
+              <Select value={eventFilter} onValueChange={setEventFilter}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Filter Event" />
                 </SelectTrigger>
@@ -802,7 +854,7 @@ export default function TicketsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Daftar Tickets ({filteredTickets.length})</CardTitle>
+          <CardTitle>Daftar Tickets ({tickets.length})</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -810,25 +862,20 @@ export default function TicketsPage() {
               <TableHeader>
                 <TableRow>
                   <SimpleTableHeader className="w-16">No</SimpleTableHeader>
-                  <SimpleTableHeader>Attendee</SimpleTableHeader>
+                  <SimpleTableHeader>Ticket Code</SimpleTableHeader>
+                  <SimpleTableHeader className="hidden md:table-cell">
+                    Attendee
+                  </SimpleTableHeader>
                   <SimpleTableHeader className="hidden md:table-cell">
                     Ticket Type
                   </SimpleTableHeader>
                   <SimpleTableHeader className="hidden md:table-cell">
                     Nama Event
                   </SimpleTableHeader>
-                  {customHeaders.map((header) => (
-                    <SimpleTableHeader
-                      key={header}
-                      className="hidden md:table-cell"
-                    >
-                      {header}
-                    </SimpleTableHeader>
-                  ))}
                   <SimpleTableHeader>Check-in Status</SimpleTableHeader>
-                  {/* <SimpleTableHeader className="hidden md:table-cell">
+                  <SimpleTableHeader className="hidden md:table-cell">
                     Aksi
-                  </SimpleTableHeader> */}
+                  </SimpleTableHeader>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -844,23 +891,41 @@ export default function TicketsPage() {
                     <TableCell className="w-16 text-center text-sm text-gray-500 font-medium">
                       {(page - 1) * pageSize + index + 1}
                     </TableCell>
-                    <TableCell>
-                      <div className="font-medium">{ticket.attendee_name}</div>
-                      <div className="text-sm text-gray-500">
-                        {ticket.ticket_code}
+                    <TableCell className="block md:table-cell md:w-auto w-full align-top">
+                      <div className="md:hidden">
+                        <div className="font-medium whitespace-nowrap overflow-hidden text-ellipsis max-w-xs">
+                          {ticket.attendee_name}
+                        </div>
+                        <div className="font-mono text-xs text-gray-500 whitespace-nowrap overflow-hidden text-ellipsis max-w-xs">
+                          {ticket.ticket_code}
+                        </div>
+                      </div>
+                      <div className="hidden md:block">
+                        <div className="font-mono text-xs font-medium whitespace-nowrap">
+                          {ticket.ticket_code}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
-                      {ticket.ticket_type_name || "-"}
+                      <div>
+                        <div className="font-medium">
+                          {ticket.attendee_name}
+                        </div>
+                        {ticket.attendee_email && (
+                          <div className="text-sm text-gray-500">
+                            {ticket.attendee_email}
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
-                      {ticket.event_name || "-"}
+                      <div className="text-sm">
+                        {ticket.ticket_type_name || "-"}
+                      </div>
                     </TableCell>
-                    {customHeaders.map((header) => (
-                      <TableCell key={header} className="hidden md:table-cell">
-                        {ticket.custom_data?.[header] || "-"}
-                      </TableCell>
-                    ))}
+                    <TableCell className="hidden md:table-cell">
+                      <div className="text-sm">{ticket.event_name || "-"}</div>
+                    </TableCell>
                     <TableCell>
                       <div className="space-y-1">
                         <Badge
@@ -874,13 +939,33 @@ export default function TicketsPage() {
                             : "Not Checked In"}
                         </Badge>
                         {ticket.checked_in_at && (
-                          <div className="text-xs text-gray-500 mt-1">
+                          <div className="text-xs text-gray-500">
                             {formatDate(ticket.checked_in_at)}
                           </div>
                         )}
+                        <div className="flex md:hidden mt-2">
+                          <Button
+                            size="sm"
+                            variant={
+                              ticket.is_checked_in ? "outline" : "default"
+                            }
+                            onClick={() =>
+                              updateCheckInStatus(
+                                ticket.id,
+                                !ticket.is_checked_in,
+                              )
+                            }
+                          >
+                            {ticket.is_checked_in ? (
+                              <XCircle className="h-4 w-4" />
+                            ) : (
+                              <CheckCircle className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
                       </div>
                     </TableCell>
-                    {/* <TableCell className="hidden md:table-cell">
+                    <TableCell className="hidden md:table-cell">
                       <div className="flex space-x-2">
                         <Button
                           size="sm"
@@ -902,7 +987,7 @@ export default function TicketsPage() {
                           <Eye className="h-4 w-4" />
                         </Button>
                       </div>
-                    </TableCell> */}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
