@@ -3,14 +3,15 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import MainLayoutClient from "@/components/main-layout-client"
-import { generateDynamicMetadata } from "@/lib/database"
 
 const inter = Inter({ subsets: ["latin"] })
 
-// Generate metadata dynamically on the server
-export const generateMetadata: () => Promise<Metadata> = generateDynamicMetadata
+export const metadata: Metadata = {
+  title: "IJF Ticket Admin",
+  description: "Admin panel for IJF ticket management system",
+  generator: "v0.app",
+}
 
-// Ensure the layout is always dynamically rendered to get fresh metadata
 export const revalidate = 0
 
 export default function RootLayout({
@@ -26,7 +27,3 @@ export default function RootLayout({
     </html>
   )
 }
-
-export const metadata = {
-      generator: 'v0.app'
-    };
