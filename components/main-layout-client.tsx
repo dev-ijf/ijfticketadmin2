@@ -1,16 +1,24 @@
-"use client"
-import { useState } from "react"
-import { useIsMobile } from "@/hooks/use-mobile"
-import { Sidebar } from "@/components/sidebar"
-import { Button } from "@/components/ui/button"
-import { PanelLeft } from "lucide-react"
-import { Toaster } from "@/components/ui/toaster"
+"use client";
+import { useState } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Sidebar } from "@/components/sidebar";
+import { Button } from "@/components/ui/button";
+import { PanelLeft } from "lucide-react";
+import { Toaster } from "@/components/ui/toaster";
 
-export default function MainLayoutClient({ children }: { children: React.ReactNode }) {
-  const isMobile = useIsMobile()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+export default function MainLayoutClient({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const isMobile = useIsMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   return (
-    <div className={isMobile ? "flex h-screen bg-gray-50 pt-16" : "flex h-screen bg-gray-50"}>
+    <div
+      className={
+        isMobile ? "flex h-screen bg-gray-50 pt-16" : "flex h-screen bg-gray-50"
+      }
+    >
       {isMobile ? (
         <>
           <Button
@@ -31,5 +39,5 @@ export default function MainLayoutClient({ children }: { children: React.ReactNo
       </main>
       <Toaster />
     </div>
-  )
+  );
 }

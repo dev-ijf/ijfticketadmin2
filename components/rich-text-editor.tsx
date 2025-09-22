@@ -1,63 +1,95 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
-import { Bold, Italic, Underline, List, ListOrdered, Link, Type } from "lucide-react"
+import { useState, useRef, useEffect } from "react";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import {
+  Bold,
+  Italic,
+  Underline,
+  List,
+  ListOrdered,
+  Link,
+  Type,
+} from "lucide-react";
 
 interface RichTextEditorProps {
-  value: string
-  onChange: (value: string) => void
-  placeholder?: string
-  label?: string
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  label?: string;
 }
 
-export function RichTextEditor({ value, onChange, placeholder, label }: RichTextEditorProps) {
-  const [isPreview, setIsPreview] = useState(false)
+export function RichTextEditor({
+  value,
+  onChange,
+  placeholder,
+  label,
+}: RichTextEditorProps) {
+  const [isPreview, setIsPreview] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    // Cleanup timeout on unmount
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const insertText = (before: string, after = "") => {
-    const textarea = document.getElementById("rich-editor") as HTMLTextAreaElement
-    if (!textarea) return
+    const textarea = textareaRef.current;
+    if (!textarea) return;
 
-    const start = textarea.selectionStart
-    const end = textarea.selectionEnd
-    const selectedText = value.substring(start, end)
-    const newText = value.substring(0, start) + before + selectedText + after + value.substring(end)
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = value.substring(start, end);
+    const newText =
+      value.substring(0, start) +
+      before +
+      selectedText +
+      after +
+      value.substring(end);
 
-    onChange(newText)
+    onChange(newText);
 
     // Restore cursor position
-    setTimeout(() => {
-      textarea.focus()
-      textarea.setSelectionRange(start + before.length, end + before.length)
-    }, 0)
-  }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + before.length, end + before.length);
+    }, 0);
+  };
 
   const formatText = (format: string) => {
     switch (format) {
       case "bold":
-        insertText("**", "**")
-        break
+        insertText("**", "**");
+        break;
       case "italic":
-        insertText("*", "*")
-        break
+        insertText("*", "*");
+        break;
       case "underline":
-        insertText("<u>", "</u>")
-        break
+        insertText("<u>", "</u>");
+        break;
       case "list":
-        insertText("\n- ", "")
-        break
+        insertText("\n- ", "");
+        break;
       case "orderedList":
-        insertText("\n1. ", "")
-        break
+        insertText("\n1. ", "");
+        break;
       case "link":
-        insertText("[", "](url)")
-        break
+        insertText("[", "](url)");
+        break;
       case "heading":
-        insertText("\n## ", "")
-        break
+        insertText("\n## ", "");
+        break;
     }
-  }
+  };
 
   const convertToHtml = (text: string) => {
     return text
@@ -66,9 +98,9 @@ export function RichTextEditor({ value, onChange, placeholder, label }: RichText
       .replace(/^## (.*$)/gm, "<h2>$1</h2>")
       .replace(/^- (.*$)/gm, "<li>$1</li>")
       .replace(/^(\d+)\. (.*$)/gm, "<li>$1. $2</li>")
-      .replace(/\[([^\]]+)\]$$([^)]+)$$/g, '<a href="$2" target="_blank">$1</a>')
-      .replace(/\n/g, "<br>")
-  }
+      .replace(/\[([^\]]+)\]$([^)]+)$/g, '<a href="$2" target="_blank">$1</a>')
+      .replace(/\n/g, "<br>");
+  };
 
   return (
     <div className="space-y-2">
@@ -76,19 +108,49 @@ export function RichTextEditor({ value, onChange, placeholder, label }: RichText
 
       {/* Toolbar */}
       <div className="flex flex-wrap gap-1 p-2 border rounded-t bg-gray-50">
-        <Button type="button" variant="ghost" size="sm" onClick={() => formatText("bold")} className="h-8 w-8 p-0">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => formatText("bold")}
+          className="h-8 w-8 p-0"
+        >
           <Bold className="h-4 w-4" />
         </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={() => formatText("italic")} className="h-8 w-8 p-0">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => formatText("italic")}
+          className="h-8 w-8 p-0"
+        >
           <Italic className="h-4 w-4" />
         </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={() => formatText("underline")} className="h-8 w-8 p-0">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => formatText("underline")}
+          className="h-8 w-8 p-0"
+        >
           <Underline className="h-4 w-4" />
         </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={() => formatText("heading")} className="h-8 w-8 p-0">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => formatText("heading")}
+          className="h-8 w-8 p-0"
+        >
           <Type className="h-4 w-4" />
         </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={() => formatText("list")} className="h-8 w-8 p-0">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => formatText("list")}
+          className="h-8 w-8 p-0"
+        >
           <List className="h-4 w-4" />
         </Button>
         <Button
@@ -100,7 +162,13 @@ export function RichTextEditor({ value, onChange, placeholder, label }: RichText
         >
           <ListOrdered className="h-4 w-4" />
         </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={() => formatText("link")} className="h-8 w-8 p-0">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => formatText("link")}
+          className="h-8 w-8 p-0"
+        >
           <Link className="h-4 w-4" />
         </Button>
         <div className="ml-auto">
@@ -123,7 +191,7 @@ export function RichTextEditor({ value, onChange, placeholder, label }: RichText
         />
       ) : (
         <textarea
-          id="rich-editor"
+          ref={textareaRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
@@ -133,8 +201,9 @@ export function RichTextEditor({ value, onChange, placeholder, label }: RichText
 
       {/* Help text */}
       <div className="text-xs text-gray-500">
-        Use **bold**, *italic*, ## heading, - list, 1. numbered list, [link](url)
+        Use **bold**, *italic*, ## heading, - list, 1. numbered list,
+        [link](url)
       </div>
     </div>
-  )
+  );
 }

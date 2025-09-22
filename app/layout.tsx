@@ -1,24 +1,23 @@
-import type React from "react"
-import type { Metadata } from "next"
-import { Inter } from "next/font/google"
-import "./globals.css"
-import MainLayoutClient from "@/components/main-layout-client"
+import type React from "react";
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import MainLayoutClient from "@/components/main-layout-client";
+import { generateDynamicMetadata } from "@/lib/database";
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ subsets: ["latin"] });
 
-export const metadata: Metadata = {
-  title: "IJF Ticket Admin - Kreativa Global School",
-  description: "Admin panel untuk sistem ticketing IJF",
-  icons: {
-    icon: "/favicon.png",
-  },
-    generator: 'v0.dev'
-}
+// Generate metadata dynamically on the server
+export const generateMetadata: () => Promise<Metadata> =
+  generateDynamicMetadata;
+
+// Ensure the layout is always dynamically rendered to get fresh metadata
+export const revalidate = 0;
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="id">
@@ -26,5 +25,9 @@ export default function RootLayout({
         <MainLayoutClient>{children}</MainLayoutClient>
       </body>
     </html>
-  )
+  );
 }
+
+export const metadata = {
+      generator: 'v0.app'
+    };
