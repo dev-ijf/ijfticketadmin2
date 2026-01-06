@@ -9,6 +9,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@auth/core": "latest",
     "@dnd-kit/core": "latest",
     "@dnd-kit/sortable": "latest",
     "@dnd-kit/utilities": "latest",
@@ -62,7 +63,9 @@
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
     "next": "16.0.10",
+    "next-auth": "^4.24.10",
     "next-themes": "latest",
+    "nodemailer": "latest",
     "react": "^18",
     "react-day-picker": "9.8.0",
     "react-dom": "^18",
