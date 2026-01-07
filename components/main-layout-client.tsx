@@ -19,16 +19,6 @@ export default function MainLayoutClient({
   const pathname = usePathname();
   const router = useRouter();
 
-  // Untuk halaman login, jangan tampilkan sidebar/layout admin
-  if (pathname === "/login") {
-    return (
-      <>
-        {children}
-        <Toaster />
-      </>
-    );
-  }
-
   // Auto logout dan redirect jika tidak ada session
   useEffect(() => {
     if (status === "unauthenticated" && pathname !== "/login") {
@@ -40,7 +30,17 @@ export default function MainLayoutClient({
         });
       }
     }
-  }, [status, pathname, router]);
+  }, [status, pathname, router, signOut]);
+
+  // Untuk halaman login, jangan tampilkan sidebar/layout admin
+  if (pathname === "/login") {
+    return (
+      <>
+        {children}
+        <Toaster />
+      </>
+    );
+  }
 
   return (
     <div
