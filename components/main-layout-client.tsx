@@ -1,10 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sidebar } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
-import { PanelLeft } from "lucide-react";
+import { PanelLeft, LogOut } from "lucide-react";
 import { Toaster } from "@/components/ui/toaster";
+import { useSession, signOut } from "next-auth/react";
+import { usePathname, useRouter } from "next/navigation";
 
 export default function MainLayoutClient({
   children,
@@ -13,6 +15,33 @@ export default function MainLayoutClient({
 }) {
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { status, data: session } = useSession();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  // Untuk halaman login, jangan tampilkan sidebar/layout admin
+  if (pathname === "/login") {
+    return (
+      <>
+        {children}
+        <Toaster />
+      </>
+    );
+  }
+
+  // Auto logout dan redirect jika tidak ada session
+  useEffect(() => {
+    if (status === "unauthenticated" && pathname !== "/login") {
+      // Clear any stale session data
+      if (typeof window !== "undefined") {
+        // Force sign out to clear any cached session
+        signOut({ redirect: false }).then(() => {
+          router.replace("/login");
+        });
+      }
+    }
+  }, [status, pathname, router]);
+
   return (
     <div
       className={
@@ -35,7 +64,23 @@ export default function MainLayoutClient({
         <Sidebar />
       )}
       <main className="flex-1 overflow-auto">
-        <div className="p-6">{children}</div>
+        <div className="flex items-center justify-end px-6 pt-4 space-x-4">
+          {session?.user?.email && (
+            <span className="text-sm text-gray-600">
+              Masuk sebagai{" "}
+              <span className="font-medium">{session.user.email}</span>
+            </span>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => signOut({ callbackUrl: "/login" })}
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Keluar
+          </Button>
+        </div>
+        <div className="p-6 pt-2">{children}</div>
       </main>
       <Toaster />
     </div>

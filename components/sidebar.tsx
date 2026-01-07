@@ -66,6 +66,7 @@ const navigation = [
   { name: "Tickets", href: "/tickets", icon: FileText },
   { name: "Scan", href: "/scan-ticket", icon: QrCode },
   { name: "Customers", href: "/customers", icon: Users },
+  { name: "Users", href: "/users", icon: Users },
   { name: "Discounts", href: "/discounts", icon: Tag },
   {
     name: "Payment & Instructions",
