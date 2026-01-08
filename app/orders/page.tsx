@@ -38,6 +38,17 @@ import {
   DialogTrigger,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Trash2, MessageSquare } from "lucide-react";
 import * as XLSX from "xlsx";
 
 type Order = {
@@ -60,6 +71,7 @@ type Order = {
   event_slug: string;
   payment_channel_name: string | null;
   payment_channel_type: string | null;
+  order_reference?: string;
 };
 
 type Event = {
@@ -115,8 +127,30 @@ export default function OrdersPage() {
   const [eventFilter, setEventFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(10);
   const { toast } = useToast();
+
+  // Confirmation dialogs state
+  const [statusChangeDialog, setStatusChangeDialog] = useState<{
+    open: boolean;
+    orderId: number | null;
+    newStatus: string | null;
+    oldStatus: string | null;
+  }>({
+    open: false,
+    orderId: null,
+    newStatus: null,
+    oldStatus: null,
+  });
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    orderId: number | null;
+    orderReference: string | null;
+  }>({
+    open: false,
+    orderId: null,
+    orderReference: null,
+  });
 
   // Upload states
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -164,12 +198,26 @@ export default function OrdersPage() {
     }
   };
 
-  const updateOrderStatus = async (orderId: number, newStatus: string) => {
+  const handleStatusChangeClick = (orderId: number, newStatus: string, oldStatus: string) => {
+    setStatusChangeDialog({
+      open: true,
+      orderId,
+      newStatus,
+      oldStatus,
+    });
+  };
+
+  const confirmStatusChange = async () => {
+    if (!statusChangeDialog.orderId || !statusChangeDialog.newStatus) return;
+
     try {
       const response = await fetch("/api/orders", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: orderId, status: newStatus }),
+        body: JSON.stringify({
+          id: statusChangeDialog.orderId,
+          status: statusChangeDialog.newStatus,
+        }),
       });
       if (!response.ok) throw new Error("Failed to update order status");
       toast({
@@ -182,6 +230,83 @@ export default function OrdersPage() {
       toast({
         title: "Error",
         description: "Gagal memperbarui status order",
+        variant: "destructive",
+      });
+    } finally {
+      setStatusChangeDialog({
+        open: false,
+        orderId: null,
+        newStatus: null,
+        oldStatus: null,
+      });
+    }
+  };
+
+  const handleDeleteClick = (orderId: number, orderReference: string) => {
+    setDeleteDialog({
+      open: true,
+      orderId,
+      orderReference,
+    });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteDialog.orderId) return;
+
+    try {
+      const response = await fetch("/api/orders", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: deleteDialog.orderId }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to delete order");
+      }
+      toast({
+        title: "Berhasil",
+        description: "Order dan semua data terkait berhasil dihapus",
+      });
+      await fetchOrders();
+    } catch (error: any) {
+      console.error("Error deleting order:", error);
+      toast({
+        title: "Error",
+        description: error?.message || "Gagal menghapus order",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteDialog({
+        open: false,
+        orderId: null,
+        orderReference: null,
+      });
+    }
+  };
+
+  const handleResendWhatsApp = async (orderId: number) => {
+    try {
+      const response = await fetch("/api/orders/resend-wa-paid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to resend WhatsApp");
+      }
+
+      toast({
+        title: "Berhasil",
+        description: "WhatsApp paid notification berhasil dikirim ulang",
+      });
+    } catch (error: any) {
+      console.error("Error resending WhatsApp:", error);
+      toast({
+        title: "Error",
+        description: error?.message || "Gagal mengirim ulang WhatsApp",
         variant: "destructive",
       });
     }
@@ -766,6 +891,11 @@ export default function OrdersPage() {
     page * pageSize,
   );
 
+  // Reset to page 1 when pageSize changes
+  useEffect(() => {
+    setPage(1);
+  }, [pageSize]);
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -1008,6 +1138,7 @@ export default function OrdersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <SimpleTableHeader>No</SimpleTableHeader>
                   <SimpleTableHeader>Order ID</SimpleTableHeader>
                   <SimpleTableHeader>Customer</SimpleTableHeader>
                   <SimpleTableHeader>Event</SimpleTableHeader>
@@ -1019,8 +1150,13 @@ export default function OrdersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pagedOrders.map((order) => (
+                {pagedOrders.map((order, index) => (
                   <TableRow key={order.id}>
+                    <TableCell>
+                      <div className="text-sm text-gray-600">
+                        {(page - 1) * pageSize + index + 1}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <div className="font-mono font-medium">#{order.id}</div>
                     </TableCell>
@@ -1077,7 +1213,7 @@ export default function OrdersPage() {
                         <Select
                           value={order.status}
                           onValueChange={(value) =>
-                            updateOrderStatus(order.id, value)
+                            handleStatusChangeClick(order.id, value, order.status)
                           }
                         >
                           <SelectTrigger className="w-32">
@@ -1091,6 +1227,25 @@ export default function OrdersPage() {
                             <SelectItem value="failed">Failed</SelectItem>
                           </SelectContent>
                         </Select>
+                        {order.status === "paid" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleResendWhatsApp(order.id)}
+                            title="Kirim Ulang WhatsApp Paid"
+                          >
+                            <MessageSquare className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() =>
+                            handleDeleteClick(order.id, order.order_reference || order.id.toString())
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -1100,8 +1255,27 @@ export default function OrdersPage() {
           </div>
           {/* Pagination Controls */}
           <div className="flex justify-between items-center mt-4">
-            <div className="text-sm text-gray-600">
-              Page {page} of {totalPages}
+            <div className="flex items-center space-x-4">
+              <div className="text-sm text-gray-600">
+                Page {page} of {totalPages} ({filteredOrders.length} total)
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-600">Per page:</span>
+                <Select
+                  value={pageSize.toString()}
+                  onValueChange={(value) => setPageSize(Number(value))}
+                >
+                  <SelectTrigger className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="space-x-2">
               <Button
@@ -1124,6 +1298,84 @@ export default function OrdersPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Status Change Confirmation Dialog */}
+      <AlertDialog open={statusChangeDialog.open} onOpenChange={(open) => {
+        if (!open) {
+          setStatusChangeDialog({
+            open: false,
+            orderId: null,
+            newStatus: null,
+            oldStatus: null,
+          });
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Konfirmasi Perubahan Status</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apakah Anda yakin ingin mengubah status order #{statusChangeDialog.orderId} dari{" "}
+              <strong>{statusChangeDialog.oldStatus?.toUpperCase()}</strong> menjadi{" "}
+              <strong>{statusChangeDialog.newStatus?.toUpperCase()}</strong>?
+              {statusChangeDialog.newStatus === "paid" && (
+                <span className="block mt-2 text-blue-600">
+                  Notifikasi WhatsApp akan dikirim otomatis.
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmStatusChange}>
+              Ya, Ubah Status
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialog.open} onOpenChange={(open) => {
+        if (!open) {
+          setDeleteDialog({
+            open: false,
+            orderId: null,
+            orderReference: null,
+          });
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Konfirmasi Hapus Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apakah Anda yakin ingin menghapus order #{deleteDialog.orderId}?
+              <br />
+              <br />
+              <strong className="text-red-600">
+                Tindakan ini akan menghapus semua data terkait:
+              </strong>
+              <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
+                <li>Order #{deleteDialog.orderId}</li>
+                <li>Order Items</li>
+                <li>Tickets</li>
+                <li>Notification Logs</li>
+              </ul>
+              <br />
+              <span className="text-red-600 font-semibold">
+                Tindakan ini tidak dapat dibatalkan!
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Ya, Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

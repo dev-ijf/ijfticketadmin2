@@ -274,3 +274,49 @@ export async function PUT(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { id } = await request.json();
+    if (!id) {
+      return NextResponse.json(
+        { error: "Order ID is required" },
+        { status: 400 },
+      );
+    }
+
+    const sql = getSql();
+
+    // Get order reference for logging
+    const orderResult = await sql`
+      SELECT order_reference FROM orders WHERE id = ${id}
+    `;
+    const orderReference = orderResult.length > 0 ? orderResult[0].order_reference : null;
+
+    // Delete notification logs related to this order
+    if (orderReference) {
+      await sql`
+        DELETE FROM notification_logs WHERE order_reference = ${orderReference}
+      `;
+    }
+
+    // Delete order (this will cascade delete order_items and tickets due to foreign key constraints)
+    await sql`DELETE FROM orders WHERE id = ${id}`;
+
+    console.log(`Order ${id} and all related data deleted successfully`);
+
+    return NextResponse.json({
+      success: true,
+      message: "Order and all related data deleted successfully",
+    });
+  } catch (error: any) {
+    console.error("Error deleting order:", error);
+    return NextResponse.json(
+      {
+        error: "Failed to delete order",
+        details: error?.message || "Unknown error",
+      },
+      { status: 500 },
+    );
+  }
+}
