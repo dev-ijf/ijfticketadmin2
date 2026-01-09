@@ -47,31 +47,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Generate tickets
-    const tickets = items.flatMap((item) => {
-      const qty = Number(item.quantity) || 0;
-      const eff = Number(item.effective_ticket_count) || 0;
-      if (qty < 1 || eff < 1) return [];
-      return Array.from({ length: qty * eff }).map(() => ({
-        order_id: order.id,
-        ticket_type_id: item.ticket_type_id,
-        attendee_name: order.customer_name || "-",
-        attendee_email: order.customer_email || null,
-      }));
-    });
+    // Gunakan fungsi database terpusat untuk membuat tiket,
+    // supaya konsisten dengan logika import & pembuatan order lain
+    await sql`
+      SELECT public.create_tickets_for_paid_order(${order_id})
+    `;
 
-    if (tickets.length === 0) {
-      return NextResponse.json(
-        { error: "No valid tickets to create" },
-        { status: 400 },
-      );
-    }
-
-    for (const ticket of tickets) {
+    // Jalankan fallback untuk memastikan custom field answers
+    // (ticket_custom_field_answers) ter-generate dari custom_answers JSON
+    try {
       await sql`
-        INSERT INTO tickets (order_id, ticket_type_id, attendee_name, attendee_email, created_at, updated_at)
-        VALUES (${ticket.order_id}, ${ticket.ticket_type_id}, ${ticket.attendee_name}, ${ticket.attendee_email}, NOW(), NOW())
+        SELECT public.fallback_insert_custom_field_answers()
       `;
+    } catch (fallbackError) {
+      console.error(
+        "fallback_insert_custom_field_answers failed (non-fatal):",
+        fallbackError,
+      );
+      // Jangan fail seluruh request hanya karena fallback error
     }
 
     // Send WhatsApp notification

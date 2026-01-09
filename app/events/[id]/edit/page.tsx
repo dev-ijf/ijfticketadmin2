@@ -12,6 +12,10 @@ import { ArrowLeft, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ImageUpload } from "@/components/image-upload";
 import { RichTextEditor } from "@/components/rich-text-editor";
+import {
+  CustomFieldsManager,
+  type CustomField,
+} from "@/components/custom-fields-manager";
 
 type EventUpdate = {
   name: string;
@@ -21,6 +25,7 @@ type EventUpdate = {
   location: string | null;
   description: string | null;
   image_url: string | null;
+   custom_fields?: CustomField[];
 };
 
 export default function EditEventPage() {
@@ -36,7 +41,10 @@ export default function EditEventPage() {
     location: "",
     description: "",
     image_url: "",
+    custom_fields: [],
   });
+  const [customFieldsValid, setCustomFieldsValid] = useState(true);
+  const [customFieldsErrors, setCustomFieldsErrors] = useState<string[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -63,6 +71,7 @@ export default function EditEventPage() {
         location: data.location || "",
         description: data.description || "",
         image_url: data.image_url || "",
+        custom_fields: data.custom_fields || [],
       });
     } catch (error) {
       console.error("Error fetching event:", error);
@@ -90,6 +99,15 @@ export default function EditEventPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!customFieldsValid) {
+      toast({
+        title: "Error Validasi",
+        description:
+          "Terdapat error pada custom fields. Silakan perbaiki terlebih dahulu.",
+        variant: "destructive",
+      });
+      return;
+    }
     setSaving(true);
 
     try {
@@ -260,6 +278,34 @@ export default function EditEventPage() {
               </Button>
             </div>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-6">
+          <CustomFieldsManager
+            fields={formData.custom_fields || []}
+            onChange={(fields) =>
+              setFormData({ ...formData, custom_fields: fields })
+            }
+            onValidationChange={(isValid, errors) => {
+              setCustomFieldsValid(isValid);
+              setCustomFieldsErrors(errors);
+            }}
+          />
+
+          {!customFieldsValid && customFieldsErrors.length > 0 && (
+            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <h4 className="text-sm font-medium text-red-800 mb-2">
+                Error Validasi Custom Fields:
+              </h4>
+              <ul className="text-sm text-red-700 space-y-1">
+                {customFieldsErrors.map((error, index) => (
+                  <li key={index}>• {error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

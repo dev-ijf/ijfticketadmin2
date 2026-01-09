@@ -12,6 +12,10 @@ import { ArrowLeft, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ImageUpload } from "@/components/image-upload";
 import dynamic from "next/dynamic";
+import {
+  CustomFieldsManager,
+  type CustomField,
+} from "@/components/custom-fields-manager";
 
 const RichTextEditor = dynamic(
   () =>
@@ -29,6 +33,7 @@ type EventInsert = {
   location: string | null;
   description: string | null;
   image_url: string | null;
+  custom_fields?: CustomField[];
 };
 
 export default function CreateEventPage() {
@@ -42,8 +47,11 @@ export default function CreateEventPage() {
     location: "",
     description: "",
     image_url: "",
+    custom_fields: [],
   });
   const { toast } = useToast();
+  const [customFieldsValid, setCustomFieldsValid] = useState(true);
+  const [customFieldsErrors, setCustomFieldsErrors] = useState<string[]>([]);
 
   const clearRedis = async () => {
     try {
@@ -59,6 +67,16 @@ export default function CreateEventPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Validasi custom fields dulu
+    if (!customFieldsValid) {
+      toast({
+        title: "Error Validasi",
+        description:
+          "Terdapat error pada custom fields. Silakan perbaiki terlebih dahulu.",
+        variant: "destructive",
+      });
+      return;
+    }
     setLoading(true);
 
     try {
@@ -223,6 +241,34 @@ export default function CreateEventPage() {
               </Button>
             </div>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-6">
+          <CustomFieldsManager
+            fields={formData.custom_fields || []}
+            onChange={(fields) =>
+              setFormData({ ...formData, custom_fields: fields })
+            }
+            onValidationChange={(isValid, errors) => {
+              setCustomFieldsValid(isValid);
+              setCustomFieldsErrors(errors);
+            }}
+          />
+
+          {!customFieldsValid && customFieldsErrors.length > 0 && (
+            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <h4 className="text-sm font-medium text-red-800 mb-2">
+                Error Validasi Custom Fields:
+              </h4>
+              <ul className="text-sm text-red-700 space-y-1">
+                {customFieldsErrors.map((error, index) => (
+                  <li key={index}>• {error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

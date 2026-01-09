@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -19,7 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Eye, CheckCircle, XCircle, Download } from "lucide-react";
+import { Search, Eye, CheckCircle, XCircle, Download, Edit } from "lucide-react";
+import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { SimpleTableHeader } from "@/components/table-header";
 import {
@@ -120,6 +122,8 @@ export default function TicketsPage() {
   const [eventFilter, setEventFilter] = useState<string>("all");
   const [events, setEvents] = useState<{ id: number; name: string }[]>([]);
   const [customHeaders, setCustomHeaders] = useState<string[]>([]);
+  const [customFieldsForFilter, setCustomFieldsForFilter] = useState<any[]>([]);
+  const [customFieldFilters, setCustomFieldFilters] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
   const { toast } = useToast();
@@ -442,12 +446,37 @@ export default function TicketsPage() {
     }
   };
 
+  const fetchCustomFieldsForFilter = async (eventId: string) => {
+    if (eventId === "all") {
+      setCustomFieldsForFilter([]);
+      setCustomFieldFilters({});
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/events/custom-fields?event_id=${eventId}`);
+      if (!response.ok) throw new Error("Failed to fetch custom fields");
+      const data = await response.json();
+      setCustomFieldsForFilter(data.custom_fields || []);
+      // Reset custom field filters when event changes
+      const newFilters: Record<string, string> = {};
+      data.custom_fields?.forEach((field: any) => {
+        newFilters[field.field_name] = "";
+      });
+      setCustomFieldFilters(newFilters);
+    } catch (error) {
+      console.error("Error fetching custom fields:", error);
+      setCustomFieldsForFilter([]);
+    }
+  };
+
   useEffect(() => {
     fetchEvents();
   }, []);
 
   useEffect(() => {
     fetchTickets(eventFilter);
+    fetchCustomFieldsForFilter(eventFilter);
   }, [eventFilter, refreshKey, fetchTickets]);
 
   const formatDate = (dateString: string) => {
@@ -476,7 +505,17 @@ export default function TicketsPage() {
       (statusFilter === "checked_in" && ticket.is_checked_in) ||
       (statusFilter === "not_checked_in" && !ticket.is_checked_in);
 
-    return matchesSearch && matchesStatus;
+    // Filter by custom fields
+    const matchesCustomFields = Object.entries(customFieldFilters).every(
+      ([fieldName, filterValue]) => {
+        if (!filterValue) return true; // No filter set for this field
+        const ticketValue = ticket.custom_data?.[fieldName];
+        if (!ticketValue) return false;
+        return String(ticketValue).toLowerCase().includes(filterValue.toLowerCase());
+      }
+    );
+
+    return matchesSearch && matchesStatus && matchesCustomFields;
   });
 
   const totalPages = Math.ceil(filteredTickets.length / pageSize);
@@ -797,6 +836,61 @@ export default function TicketsPage() {
               </Select>
             </div>
           </div>
+          {customFieldsForFilter.length > 0 && (
+            <div className="mt-4 pt-4 border-t">
+              <h3 className="text-sm font-semibold mb-3">Filter Custom Fields</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {customFieldsForFilter.map((field) => {
+                  const filterValue = customFieldFilters[field.field_name] || "";
+
+                  if (["dropdown", "radio"].includes(field.field_type)) {
+                    return (
+                      <div key={field.id} className="space-y-2">
+                        <Label className="text-sm">{field.field_label}</Label>
+                        <Select
+                          value={filterValue}
+                          onValueChange={(value) =>
+                            setCustomFieldFilters({
+                              ...customFieldFilters,
+                              [field.field_name]: value,
+                            })
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder={`Semua ${field.field_label}`} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">Semua {field.field_label}</SelectItem>
+                            {field.options?.map((option: any) => (
+                              <SelectItem key={option.id} value={option.option_value}>
+                                {option.option_label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div key={field.id} className="space-y-2">
+                        <Label className="text-sm">{field.field_label}</Label>
+                        <Input
+                          placeholder={`Cari ${field.field_label}...`}
+                          value={filterValue}
+                          onChange={(e) =>
+                            setCustomFieldFilters({
+                              ...customFieldFilters,
+                              [field.field_name]: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    );
+                  }
+                })}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -826,9 +920,9 @@ export default function TicketsPage() {
                     </SimpleTableHeader>
                   ))}
                   <SimpleTableHeader>Check-in Status</SimpleTableHeader>
-                  {/* <SimpleTableHeader className="hidden md:table-cell">
+                  <SimpleTableHeader className="hidden md:table-cell">
                     Aksi
-                  </SimpleTableHeader> */}
+                  </SimpleTableHeader>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -880,29 +974,15 @@ export default function TicketsPage() {
                         )}
                       </div>
                     </TableCell>
-                    {/* <TableCell className="hidden md:table-cell">
+                    <TableCell className="hidden md:table-cell">
                       <div className="flex space-x-2">
-                        <Button
-                          size="sm"
-                          variant={ticket.is_checked_in ? "outline" : "default"}
-                          onClick={() =>
-                            updateCheckInStatus(
-                              ticket.id,
-                              !ticket.is_checked_in,
-                            )
-                          }
-                        >
-                          {ticket.is_checked_in ? (
-                            <XCircle className="h-4 w-4" />
-                          ) : (
-                            <CheckCircle className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        <Link href={`/tickets/${ticket.id}`}>
+                          <Button size="sm" variant="outline">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </Link>
                       </div>
-                    </TableCell> */}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

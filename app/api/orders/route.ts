@@ -240,13 +240,32 @@ export async function PUT(request: NextRequest) {
 
     console.log("Update result:", result);
 
-    // Send WhatsApp paid notification if status changed to "paid"
-    // Do this async without blocking the response
+    // Jika status berubah menjadi "paid", jalankan proses tambahan:
+    // - Kirim WhatsApp (async)
+    // - Jalankan fallback untuk memastikan ticket_custom_field_answers 
+    //   terisi dari custom_answers di order_item_attendees
     if (status === "paid" && oldStatus !== "paid") {
-      // Fire and forget - don't await to avoid blocking response
+      // Fire and forget WA supaya response tidak ter-block
       sendWhatsAppPaidNotification(id).catch((error) => {
-        console.error(`Failed to send WhatsApp notification for order ${id}:`, error);
+        console.error(
+          `Failed to send WhatsApp notification for order ${id}:`,
+          error,
+        );
       });
+
+      try {
+        // Fungsi ini sudah digunakan di flow import untuk
+        // mengisi ticket_custom_field_answers dari custom_answers JSON.
+        await sql`
+          SELECT public.fallback_insert_custom_field_answers()
+        `;
+      } catch (fallbackError: any) {
+        // Jangan gagal hanya karena fallback error, cukup log.
+        console.error(
+          `fallback_insert_custom_field_answers failed for order ${id}:`,
+          fallbackError,
+        );
+      }
     }
 
     const response = NextResponse.json({
