@@ -1053,6 +1053,7 @@ export async function generateDynamicMetadata(): Promise<Metadata> {
   return {
     title: settings.appName,
     description: settings.appDescription,
+    generator: "v0.app",
     icons: {
       icon: settings.favicon,
       shortcut: settings.favicon,
