@@ -103,14 +103,14 @@ export async function POST() {
       },
       {
         key: 'app_name',
-        value: 'IJF Ticket Admin - Kreativa Global School',
+        value: 'Admin Panel',
         type: 'string',
         category: 'general',
         description: 'Application name'
       },
       {
         key: 'app_description',
-        value: 'Admin panel untuk sistem ticketing IJF',
+        value: 'Admin panel description',
         type: 'string',
         category: 'general',
         description: 'Application description'

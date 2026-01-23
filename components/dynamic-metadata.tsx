@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { DEFAULT_SETTINGS, SETTING_KEYS } from "@/types/settings";
 
 interface MetadataSettings {
   appName: string;
@@ -10,9 +11,9 @@ interface MetadataSettings {
 
 // Global metadata state to ensure consistency
 let globalMetadata: MetadataSettings = {
-  appName: "Cianjur Edelweiss Running Festival 2025",
-  appDescription: "Admin Event Cianjur Edelweiss Running Festival 2025",
-  favicon: "/favicon.png",
+  appName: DEFAULT_SETTINGS[SETTING_KEYS.APP_NAME],
+  appDescription: DEFAULT_SETTINGS[SETTING_KEYS.APP_DESCRIPTION],
+  favicon: DEFAULT_SETTINGS[SETTING_KEYS.APP_FAVICON],
 };
 
 // Force DOM metadata update
@@ -98,11 +99,12 @@ export function useDynamicMetadata() {
 
         const newMetadata = {
           appName:
-            nameSetting?.value || "Cianjur Edelweiss Running Festival 2025",
+            nameSetting?.value || DEFAULT_SETTINGS[SETTING_KEYS.APP_NAME],
           appDescription:
             descriptionSetting?.value ||
-            "Admin Event Cianjur Edelweiss Running Festival 2025",
-          favicon: faviconSetting?.value || "/favicon.png",
+            DEFAULT_SETTINGS[SETTING_KEYS.APP_DESCRIPTION],
+          favicon:
+            faviconSetting?.value || DEFAULT_SETTINGS[SETTING_KEYS.APP_FAVICON],
         };
 
         console.log("✅ New metadata to apply:", newMetadata);

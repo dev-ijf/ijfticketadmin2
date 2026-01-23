@@ -69,6 +69,7 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   [SETTING_KEYS.APP_FAVICON]: '/favicon.png',
   [SETTING_KEYS.SIDEBAR_PRIMARY_COLOR]: '#9333ea',
   [SETTING_KEYS.SIDEBAR_SECONDARY_COLOR]: '#7c3aed',
-  [SETTING_KEYS.APP_NAME]: 'IJF Ticket Admin - Kreativa Global School',
-  [SETTING_KEYS.APP_DESCRIPTION]: 'Admin panel untuk sistem ticketing IJF',
+  // Dibiarkan generic; nilai sebenarnya diambil dari database (tabel settings)
+  [SETTING_KEYS.APP_NAME]: '',
+  [SETTING_KEYS.APP_DESCRIPTION]: '',
 };

@@ -991,17 +991,19 @@ export class SettingsService {
 // --- Metadata Generation ---
 
 // Define a type for the settings we expect to find
+import { DEFAULT_SETTINGS, SETTING_KEYS } from "@/types/settings";
+
 interface BrandingSettings {
   appName: string;
   appDescription: string;
   favicon: string;
 }
 
-// Define default values
+// Default metadata hanya digunakan jika tabel settings kosong / error
 const defaultMetadata: BrandingSettings = {
-  appName: "IJF Ticket Admin - Kreativa Global School",
-  appDescription: "Admin panel untuk sistem ticketing IJF",
-  favicon: "/favicon.png",
+  appName: DEFAULT_SETTINGS[SETTING_KEYS.APP_NAME] || "Admin Panel",
+  appDescription: DEFAULT_SETTINGS[SETTING_KEYS.APP_DESCRIPTION] || "",
+  favicon: DEFAULT_SETTINGS[SETTING_KEYS.APP_FAVICON] || "/favicon.png",
 };
 
 /**

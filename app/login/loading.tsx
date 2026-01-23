@@ -37,7 +37,9 @@ export default function LoginLoading() {
                 <div className="w-14 h-14 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">IJF Ticket Admin</h1>
+                <h1 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">
+                  Admin Panel
+                </h1>
                 <p className="text-purple-100 text-sm font-medium">Memuat...</p>
               </div>
             </div>

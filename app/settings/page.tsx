@@ -14,12 +14,7 @@ import {
   Settings as SettingsIcon,
 } from "lucide-react";
 import Image from "next/image";
-import {
-  Setting,
-  SettingUpdate,
-  SETTING_KEYS,
-  DEFAULT_SETTINGS,
-} from "@/types/settings";
+import { Setting, SETTING_KEYS, DEFAULT_SETTINGS } from "@/types/settings";
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Setting[]>([]);
@@ -446,125 +441,24 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               Live Preview
-              <div className="flex gap-2 flex-wrap">
-                <Button
-                  onClick={() => {
-                    console.log("🔄 Testing current settings values...");
-                    console.log(
-                      "Primary:",
-                      getSettingValue("sidebar_primary_color"),
-                    );
-                    console.log(
-                      "Secondary:",
-                      getSettingValue("sidebar_secondary_color"),
-                    );
-                    console.log("App Name:", getSettingValue("app_name"));
-                    toast({
-                      title: "Check Console",
-                      description: "Current settings logged to console",
-                    });
-                  }}
-                  variant="ghost"
-                  size="sm"
-                >
-                  🔍 Debug
-                </Button>
-                <Button
-                  onClick={async () => {
-                    console.log("🔄 Force updating sidebar colors...");
-                    await updateSetting("sidebar_primary_color", "#e91984");
-                    await updateSetting("sidebar_secondary_color", "#75c64");
-                    setTimeout(() => {
-                      window.dispatchEvent(new CustomEvent("settingsUpdated"));
-                      window.dispatchEvent(new CustomEvent("sidebarRefresh"));
-                    }, 100);
-                  }}
-                  variant="outline"
-                  size="sm"
-                >
-                  🎨 Fix Colors
-                </Button>
-                <Button
-                  onClick={async () => {
-                    console.log("📝 Force updating app title...");
-                    const newTitle = "Cianjur Edelweiss Running Festival 2025";
-                    await updateSetting("app_name", newTitle);
-
-                    // Force immediate title update
-                    document.title = newTitle;
-
-                    setTimeout(() => {
-                      window.dispatchEvent(new CustomEvent("metadataUpdated"));
-                    }, 100);
-
-                    toast({
-                      title: "Title Updated",
-                      description: "Check browser tab title",
-                    });
-                  }}
-                  variant="outline"
-                  size="sm"
-                >
-                  📝 Fix Title
-                </Button>
-                <Button
-                  onClick={async () => {
-                    console.log("🎯 Force updating favicon...");
-                    const currentLogo =
-                      getSettingValue("app_logo") || "/logo-main-new.png";
-                    await updateSetting("app_favicon", currentLogo);
-
-                    // Force immediate favicon update
-                    const existingFavicons =
-                      document.querySelectorAll("link[rel*='icon']");
-                    existingFavicons.forEach((favicon) => favicon.remove());
-
-                    const newFavicon = document.createElement("link");
-                    newFavicon.rel = "icon";
-                    newFavicon.type = "image/png";
-                    newFavicon.href = currentLogo + "?v=" + Date.now();
-                    document.head.appendChild(newFavicon);
-
-                    setTimeout(() => {
-                      window.dispatchEvent(new CustomEvent("metadataUpdated"));
-                    }, 100);
-
-                    toast({
-                      title: "Favicon Updated",
-                      description: "Check browser tab icon",
-                    });
-                  }}
-                  variant="outline"
-                  size="sm"
-                >
-                  🎯 Fix Favicon
-                </Button>
-                <Button
-                  onClick={() => {
-                    window.dispatchEvent(new CustomEvent("settingsUpdated"));
-                    window.dispatchEvent(new CustomEvent("logoUpdated"));
-                    window.dispatchEvent(new CustomEvent("sidebarRefresh"));
-                    window.dispatchEvent(new CustomEvent("metadataUpdated"));
-                    toast({
-                      title: "Refresh Triggered",
-                      description: "All components have been refreshed",
-                    });
-                  }}
-                  variant="outline"
-                  size="sm"
-                >
-                  🔄 Force Refresh
-                </Button>
-                <Button
-                  onClick={() => {
-                    window.location.reload();
-                  }}
-                  variant="ghost"
-                  size="sm"
-                >
-                  ↻ Reload Page
-                </Button>
-              </div>
+              <Button
+                onClick={() => {
+                  // Kirim event agar sidebar & metadata mengambil ulang data terbaru
+                  window.dispatchEvent(new CustomEvent("settingsUpdated"));
+                  window.dispatchEvent(new CustomEvent("logoUpdated"));
+                  window.dispatchEvent(new CustomEvent("sidebarRefresh"));
+                  window.dispatchEvent(new CustomEvent("metadataUpdated"));
+                  toast({
+                    title: "Preview Diperbarui",
+                    description:
+                      "Sidebar, logo, dan metadata telah diminta untuk refresh.",
+                  });
+                }}
+                variant="outline"
+                size="sm"
+              >
+                🔄 Refresh Preview
+              </Button>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -572,7 +466,13 @@ export default function SettingsPage() {
               <div
                 className="p-4 rounded-lg text-white"
                 style={{
-                  background: `linear-gradient(to bottom, ${getSettingValue("sidebar_primary_color") || "#e91984"}, ${getSettingValue("sidebar_secondary_color") || "#75c64"})`,
+                  background: `linear-gradient(to bottom, ${
+                    getSettingValue(SETTING_KEYS.SIDEBAR_PRIMARY_COLOR) ||
+                    DEFAULT_SETTINGS[SETTING_KEYS.SIDEBAR_PRIMARY_COLOR]
+                  }, ${
+                    getSettingValue(SETTING_KEYS.SIDEBAR_SECONDARY_COLOR) ||
+                    DEFAULT_SETTINGS[SETTING_KEYS.SIDEBAR_SECONDARY_COLOR]
+                  })`,
                 }}
               >
                 <div className="flex items-center space-x-4">
@@ -590,10 +490,14 @@ export default function SettingsPage() {
                   )}
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold mb-1">
-                      {getSettingValue("app_name") || "App Name"}
+                      {getSettingValue(SETTING_KEYS.APP_NAME) ||
+                        DEFAULT_SETTINGS[SETTING_KEYS.APP_NAME] ||
+                        "App Name"}
                     </h3>
                     <p className="text-sm opacity-90">
-                      {getSettingValue("app_description") || "App Description"}
+                      {getSettingValue(SETTING_KEYS.APP_DESCRIPTION) ||
+                        DEFAULT_SETTINGS[SETTING_KEYS.APP_DESCRIPTION] ||
+                        "App Description"}
                     </p>
                   </div>
                 </div>
@@ -625,13 +529,17 @@ export default function SettingsPage() {
                   <div>
                     Primary Color:{" "}
                     <span className="font-mono">
-                      {getSettingValue("sidebar_primary_color") || "#e91984"}
+                      {getSettingValue(SETTING_KEYS.SIDEBAR_PRIMARY_COLOR) ||
+                        DEFAULT_SETTINGS[SETTING_KEYS.SIDEBAR_PRIMARY_COLOR]}
                     </span>
                   </div>
                   <div>
                     Secondary Color:{" "}
                     <span className="font-mono">
-                      {getSettingValue("sidebar_secondary_color") || "#75c64"}
+                      {getSettingValue(SETTING_KEYS.SIDEBAR_SECONDARY_COLOR) ||
+                        DEFAULT_SETTINGS[
+                          SETTING_KEYS.SIDEBAR_SECONDARY_COLOR
+                        ]}
                     </span>
                   </div>
                   <div>

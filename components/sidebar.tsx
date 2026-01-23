@@ -87,6 +87,8 @@ const navigation = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
+import { DEFAULT_SETTINGS, SETTING_KEYS } from "@/types/settings";
+
 interface DynamicSettings {
   logo: string;
   primaryColor: string;
@@ -100,9 +102,9 @@ export function Sidebar({
   const pathname = usePathname();
   const isMobile = useIsMobile();
   const [dynamicSettings, setDynamicSettings] = useState<DynamicSettings>({
-    logo: "/logo-main-new.png",
-    primaryColor: "#e91984", // Pink color from settings
-    secondaryColor: "#75c64", // Green color from settings
+    logo: DEFAULT_SETTINGS[SETTING_KEYS.APP_LOGO],
+    primaryColor: DEFAULT_SETTINGS[SETTING_KEYS.SIDEBAR_PRIMARY_COLOR],
+    secondaryColor: DEFAULT_SETTINGS[SETTING_KEYS.SIDEBAR_SECONDARY_COLOR],
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -140,9 +142,14 @@ export function Sidebar({
           console.log("🎨 Secondary color setting:", secondaryColorSetting);
 
           const newSettings = {
-            logo: logoSetting?.value || "/logo-main-new.png",
-            primaryColor: primaryColorSetting?.value || "#e91984",
-            secondaryColor: secondaryColorSetting?.value || "#75c64",
+            logo:
+              logoSetting?.value || DEFAULT_SETTINGS[SETTING_KEYS.APP_LOGO],
+            primaryColor:
+              primaryColorSetting?.value ||
+              DEFAULT_SETTINGS[SETTING_KEYS.SIDEBAR_PRIMARY_COLOR],
+            secondaryColor:
+              secondaryColorSetting?.value ||
+              DEFAULT_SETTINGS[SETTING_KEYS.SIDEBAR_SECONDARY_COLOR],
           };
 
           console.log("✅ New dynamic settings:", newSettings);

@@ -14,7 +14,7 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const [logo, setLogo] = useState("/logo-main-new.png");
-  const [appName, setAppName] = useState("IJF Ticket Admin");
+  const [appName, setAppName] = useState("");
   const [loading, setLoading] = useState(true);
 
   // Fetch logo and app name from settings
@@ -218,7 +218,7 @@ export default function LoginPage() {
 
           <div className="relative z-10 max-w-xl space-y-6">
             <p className="text-sm font-semibold tracking-wide text-indigo-200 uppercase">
-              IJF Ticket Admin
+              {appName || "Admin Panel"}
             </p>
             <h2 className="text-3xl lg:text-4xl font-bold leading-tight">
               Kelola Tiket Event dengan Lebih Efisien
