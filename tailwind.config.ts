@@ -11,6 +11,9 @@ const config = {
   ],
   prefix: "",
   theme: {
+    fontFamily: {
+      sans: ["var(--font-source-sans-pro)", "sans-serif"],
+    },
     container: {
       center: true,
       padding: "2rem",

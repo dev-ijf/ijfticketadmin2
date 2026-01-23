@@ -52,6 +52,8 @@ export default function PaymentLogsPage() {
   const [logTypeFilter, setLogTypeFilter] = useState<string>("all");
   const [selectedLog, setSelectedLog] = useState<PaymentLog | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -113,6 +115,20 @@ export default function PaymentLogsPage() {
 
     return matchesSearch && matchesType;
   });
+
+  const totalPages = Math.ceil(filteredLogs.length / pageSize) || 1;
+  const pagedLogs = filteredLogs.slice(
+    (page - 1) * pageSize,
+    page * pageSize,
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [pageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, logTypeFilter]);
 
   const handleViewDetails = (log: PaymentLog) => {
     setSelectedLog(log);
@@ -179,22 +195,28 @@ export default function PaymentLogsPage() {
           <CardTitle>Daftar Payment Logs ({filteredLogs.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <SimpleTableHeader>Tanggal</SimpleTableHeader>
-                <SimpleTableHeader>Order Reference</SimpleTableHeader>
-                <SimpleTableHeader>VA Number</SimpleTableHeader>
-                <SimpleTableHeader>Log Type</SimpleTableHeader>
-                <SimpleTableHeader>Aksi</SimpleTableHeader>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredLogs.map((log) => (
-                <TableRow key={log.id}>
-                  <TableCell>
-                    <div className="text-sm">{formatDate(log.created_at)}</div>
-                  </TableCell>
+          {filteredLogs.length > 0 ? (
+            <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <SimpleTableHeader className="w-16">No</SimpleTableHeader>
+                  <SimpleTableHeader>Tanggal</SimpleTableHeader>
+                  <SimpleTableHeader>Order Reference</SimpleTableHeader>
+                  <SimpleTableHeader>VA Number</SimpleTableHeader>
+                  <SimpleTableHeader>Log Type</SimpleTableHeader>
+                  <SimpleTableHeader>Aksi</SimpleTableHeader>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pagedLogs.map((log, index) => (
+                  <TableRow key={log.id}>
+                    <TableCell className="w-16 text-center text-sm text-gray-500 font-medium">
+                      {(page - 1) * pageSize + index + 1}
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">{formatDate(log.created_at)}</div>
+                    </TableCell>
                   <TableCell>
                     <div className="font-mono text-sm">
                       {log.order_reference || "-"}
@@ -219,7 +241,67 @@ export default function PaymentLogsPage() {
               ))}
             </TableBody>
           </Table>
-          {filteredLogs.length === 0 && (
+          {/* Pagination - dropdown rows per page di bawah dekat paging */}
+          <div className="flex justify-between items-center mt-4">
+            <div className="flex items-center space-x-4">
+              <div className="text-sm text-gray-600">
+                Page {page} of {totalPages} ({filteredLogs.length} total)
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-600">Per page:</span>
+                <Select
+                  value={pageSize.toString()}
+                  onValueChange={(value) => setPageSize(Number(value))}
+                >
+                  <SelectTrigger className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-x-2 flex items-center">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage(1)}
+                disabled={page === 1}
+              >
+                First
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                Previous
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+              >
+                Next
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage(totalPages)}
+                disabled={page === totalPages}
+              >
+                Last
+              </Button>
+            </div>
+          </div>
+            </>
+          ) : (
             <div className="text-center py-8 text-gray-500">
               {searchTerm || logTypeFilter !== "all"
                 ? "Tidak ada payment logs yang sesuai dengan filter"

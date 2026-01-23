@@ -51,6 +51,8 @@ export default function UsersPage() {
     email: "",
     role: "",
   });
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -178,6 +180,20 @@ export default function UsersPage() {
       })
     : [];
 
+  const totalPages = Math.ceil(filteredUsers.length / pageSize) || 1;
+  const pagedUsers = filteredUsers.slice(
+    (page - 1) * pageSize,
+    page * pageSize,
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [pageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm]);
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -301,9 +317,11 @@ export default function UsersPage() {
         </CardHeader>
         <CardContent>
           {filteredUsers.length > 0 ? (
+            <>
             <Table>
               <TableHeader>
                 <TableRow>
+                  <SimpleTableHeader className="w-16">No</SimpleTableHeader>
                   <SimpleTableHeader>Nama</SimpleTableHeader>
                   <SimpleTableHeader>Email</SimpleTableHeader>
                   <SimpleTableHeader>Role</SimpleTableHeader>
@@ -312,8 +330,11 @@ export default function UsersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map((user) => (
+                {pagedUsers.map((user, index) => (
                   <TableRow key={user.id}>
+                    <TableCell className="w-16 text-center text-sm text-gray-500 font-medium">
+                      {(page - 1) * pageSize + index + 1}
+                    </TableCell>
                     <TableCell>
                       <div className="font-medium">{user.name}</div>
                     </TableCell>
@@ -355,6 +376,66 @@ export default function UsersPage() {
                 ))}
               </TableBody>
             </Table>
+            {/* Pagination - dropdown rows per page di bawah dekat paging */}
+            <div className="flex justify-between items-center mt-4">
+              <div className="flex items-center space-x-4">
+                <div className="text-sm text-gray-600">
+                  Page {page} of {totalPages} ({filteredUsers.length} total)
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-600">Per page:</span>
+                  <Select
+                    value={pageSize.toString()}
+                    onValueChange={(value) => setPageSize(Number(value))}
+                  >
+                    <SelectTrigger className="w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-x-2 flex items-center">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage(1)}
+                  disabled={page === 1}
+                >
+                  First
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                >
+                  Next
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage(totalPages)}
+                  disabled={page === totalPages}
+                >
+                  Last
+                </Button>
+              </div>
+            </div>
+            </>
           ) : (
             <div className="text-center py-8">
               <p className="text-gray-500 mb-4">

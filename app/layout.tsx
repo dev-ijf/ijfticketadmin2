@@ -1,11 +1,14 @@
 import type React from "react";
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import MainLayoutClient from "@/components/main-layout-client";
 import SessionProviderWrapper from "@/components/session-provider";
 
-const inter = Inter({ subsets: ["latin"] });
+const sourceSansPro = Source_Sans_3({
+  subsets: ["latin"],
+  variable: "--font-source-sans-pro",
+});
 
 export const metadata: Metadata = {
   title: "IJF Ticket Admin",
@@ -22,7 +25,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="id">
-      <body className={inter.className}>
+      <body className={`${sourceSansPro.variable} ${sourceSansPro.className}`}>
         <SessionProviderWrapper>
           <MainLayoutClient>{children}</MainLayoutClient>
         </SessionProviderWrapper>

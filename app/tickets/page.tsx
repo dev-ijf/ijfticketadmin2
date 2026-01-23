@@ -125,7 +125,7 @@ export default function TicketsPage() {
   const [customFieldsForFilter, setCustomFieldsForFilter] = useState<any[]>([]);
   const [customFieldFilters, setCustomFieldFilters] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(10);
   const { toast } = useToast();
   const [scannerOpen, setScannerOpen] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -523,6 +523,10 @@ export default function TicketsPage() {
     (page - 1) * pageSize,
     page * pageSize,
   );
+
+  useEffect(() => {
+    setPage(1);
+  }, [pageSize]);
 
   const checkedInCount = tickets.filter((t) => t.is_checked_in).length;
   const notCheckedInCount = tickets.length - checkedInCount;
@@ -988,12 +992,39 @@ export default function TicketsPage() {
               </TableBody>
             </Table>
           </div>
-          {/* Pagination Controls */}
+          {/* Pagination Controls - dropdown rows per page di bawah dekat paging */}
           <div className="flex justify-between items-center mt-4">
-            <div className="text-sm text-gray-600">
-              Page {page} of {totalPages}
+            <div className="flex items-center space-x-4">
+              <div className="text-sm text-gray-600">
+                Page {page} of {totalPages} ({filteredTickets.length} total)
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-600">Per page:</span>
+                <Select
+                  value={pageSize.toString()}
+                  onValueChange={(value) => setPageSize(Number(value))}
+                >
+                  <SelectTrigger className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-x-2">
+            <div className="space-x-2 flex items-center">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage(1)}
+                disabled={page === 1}
+              >
+                First
+              </Button>
               <Button
                 size="sm"
                 variant="outline"
@@ -1009,6 +1040,14 @@ export default function TicketsPage() {
                 disabled={page === totalPages}
               >
                 Next
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage(totalPages)}
+                disabled={page === totalPages}
+              >
+                Last
               </Button>
             </div>
           </div>

@@ -68,9 +68,13 @@ export default function NotificationLogsPage() {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const { toast } = useToast();
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(10);
   const pagedLogs = logs.slice((page - 1) * pageSize, page * pageSize);
   const totalPages = Math.ceil(logs.length / pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [pageSize]);
 
   useEffect(() => {
     fetchLogs();
@@ -301,37 +305,77 @@ export default function NotificationLogsPage() {
               </TableBody>
             </Table>
           </div>
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-end mt-4">
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      aria-disabled={page === 1}
-                    />
-                  </PaginationItem>
-                  {[...Array(totalPages)].map((_, i) => (
-                    <PaginationItem key={i}>
-                      <PaginationLink
-                        isActive={page === i + 1}
-                        onClick={() => setPage(i + 1)}
-                      >
-                        {i + 1}
-                      </PaginationLink>
+          {/* Pagination - dropdown rows per page di bawah dekat paging */}
+          {logs.length > 0 && (
+            <div className="flex justify-between items-center mt-4">
+              <div className="flex items-center space-x-4">
+                <div className="text-sm text-gray-600">
+                  Page {page} of {totalPages} ({logs.length} total)
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-600">Per page:</span>
+                  <Select
+                    value={pageSize.toString()}
+                    onValueChange={(value) => setPageSize(Number(value))}
+                  >
+                    <SelectTrigger className="w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage(1)}
+                  disabled={page === 1}
+                >
+                  First
+                </Button>
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        aria-disabled={page === 1}
+                      />
                     </PaginationItem>
-                  ))}
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() =>
-                        setPage((p) => Math.min(totalPages, p + 1))
-                      }
-                      aria-disabled={page === totalPages}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
+                    {[...Array(totalPages)].map((_, i) => (
+                      <PaginationItem key={i}>
+                        <PaginationLink
+                          isActive={page === i + 1}
+                          onClick={() => setPage(i + 1)}
+                        >
+                          {i + 1}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ))}
+                    <PaginationItem>
+                      <PaginationNext
+                        onClick={() =>
+                          setPage((p) => Math.min(totalPages, p + 1))
+                        }
+                        aria-disabled={page === totalPages}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage(totalPages)}
+                  disabled={page === totalPages}
+                >
+                  Last
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

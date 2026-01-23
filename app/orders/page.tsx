@@ -1277,7 +1277,15 @@ export default function OrdersPage() {
                 </Select>
               </div>
             </div>
-            <div className="space-x-2">
+            <div className="space-x-2 flex items-center">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage(1)}
+                disabled={page === 1}
+              >
+                First
+              </Button>
               <Button
                 size="sm"
                 variant="outline"
@@ -1293,6 +1301,14 @@ export default function OrdersPage() {
                 disabled={page === totalPages}
               >
                 Next
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage(totalPages)}
+                disabled={page === totalPages}
+              >
+                Last
               </Button>
             </div>
           </div>
