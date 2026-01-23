@@ -4,7 +4,6 @@ import { Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import MainLayoutClient from "@/components/main-layout-client";
 import SessionProviderWrapper from "@/components/session-provider";
-import { generateDynamicMetadata } from "@/lib/database";
 import DynamicMetadata from "@/components/dynamic-metadata";
 
 const sourceSansPro = Source_Sans_3({
@@ -12,8 +11,11 @@ const sourceSansPro = Source_Sans_3({
   variable: "--font-source-sans-pro",
 });
 
-// Gunakan metadata dinamis dari database (settings)
-export const generateMetadata = generateDynamicMetadata;
+export const metadata: Metadata = {
+  title: "Admin Kreativa Event",
+  description: "Admin dashboard untuk manajemen event dan tiket",
+  generator: "v0.app",
+};
 
 export const revalidate = 0;
 
@@ -35,7 +37,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-export const metadata = {
-      generator: 'v0.app'
-    };
