@@ -46,17 +46,27 @@ export async function POST(request: NextRequest) {
       is_active,
     } = body;
 
+    // Validate required fields
+    if (!name || !channel || !trigger_on) {
+      return NextResponse.json(
+        { error: "Name, channel, and trigger_on are required" },
+        { status: 400 },
+      );
+    }
+
     const result = await sql`
       INSERT INTO notification_templates (name, channel, trigger_on, subject, body, is_active, created_at, updated_at)
-      VALUES (${name}, ${channel}, ${trigger_on}, ${subject}, ${content}, ${is_active}, NOW(), NOW())
+      VALUES (${name || ""}, ${channel || ""}, ${trigger_on || ""}, ${subject || null}, ${content || ""}, ${is_active ?? true}, NOW(), NOW())
       RETURNING id
     `;
 
     return NextResponse.json(result[0], { status: 201 });
   } catch (error) {
     console.error("Error creating notification template:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Failed to create notification template";
     return NextResponse.json(
-      { error: "Failed to create notification template" },
+      { error: errorMessage },
       { status: 500 },
     );
   }
@@ -72,17 +82,25 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, type, channel, subject, body: content, is_active } = body;
+    const { name, channel, trigger_on, subject, body: content, is_active } = body;
+
+    // Validate required fields
+    if (!name || !channel || !trigger_on) {
+      return NextResponse.json(
+        { error: "Name, channel, and trigger_on are required" },
+        { status: 400 },
+      );
+    }
 
     await sql`
       UPDATE notification_templates
       SET
-        name = ${name},
-        type = ${type},
-        channel = ${channel},
-        subject = ${subject},
-        body = ${content},
-        is_active = ${is_active},
+        name = ${name || ""},
+        channel = ${channel || ""},
+        trigger_on = ${trigger_on || ""},
+        subject = ${subject || null},
+        body = ${content || ""},
+        is_active = ${is_active ?? true},
         updated_at = NOW()
       WHERE id = ${id}
     `;
@@ -90,8 +108,10 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error updating notification template:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Failed to update notification template";
     return NextResponse.json(
-      { error: "Failed to update notification template" },
+      { error: errorMessage },
       { status: 500 },
     );
   }

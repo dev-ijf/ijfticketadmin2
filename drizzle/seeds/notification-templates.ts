@@ -1,0 +1,61 @@
+import { db } from "../db";
+import { notificationTemplates } from "../schema";
+
+export const notificationTemplatesSeed = [
+  {
+    id: 1,
+    name: "Email - Checkout",
+    channel: "email" as const,
+    triggerOn: "checkout" as const,
+    subject: "Instruksi Pembayaran untuk Pesanan {{order_reference}}",
+    body: "<h1>Segera Selesaikan Pembayaran Anda</h1><p>Halo <strong>{{customer.name}}</strong>,</p><p>Terima kasih telah melakukan pemesanan untuk acara <strong>{{event.name}}</strong> dengan nomor referensi <strong>{{order.order_reference}}</strong></p><p>Total tagihan Anda adalah: <strong>Rp {{order.final_amount}}</strong>.</p><p>Mohon selesaikan pembayaran sebelum <strong>{{payment_deadline}}</strong> melalui metode berikut:</p><hr><p><strong>{{payment_channel.pg_name}}</strong></p><p>Nomor Virtual Account: <strong>{{virtual_account_number}}</strong></p><p><strong>Instruksi Pembayaran:</strong> {{payment_response_url}}</p><hr><p>Pesanan akan otomatis dibatalkan jika pembayaran tidak diterima sebelum batas waktu.</p><p>Terima kasih!!</p>",
+    isActive: true,
+  },
+  {
+    id: 2,
+    name: "WhatsApp - Checkout",
+    channel: "whatsapp" as const,
+    triggerOn: "checkout" as const,
+    subject: null,
+    body: "Halo, *{{customer.name}}* 👋\n\nTerima kasih atas partisipasinya telah memesan tiket *{{event.name}}*!\n\n*Nomor Pesanan:* {{order.order_reference}}\n*Total Tagihan:* *{{order.final_amount}}*\n\nSegera selesaikan pembayaran Anda sebelum *{{payment_deadline}}*.\n\n*Metode Pembayaran:*\n*{{payment_channel.pg_name}}*\n\nNomor Virtual Account/Nomor Rekening(jika Bank Transfer/QRIS Statis): *{{virtual_account_number}}*\n\nklik disini untuk petunjuk pembayaran : {{payment_response_url}} \n\njika link tidak bisa diklik silakan save dulu nomor ini\n\nTerima kasih!",
+    isActive: true,
+  },
+  {
+    id: 3,
+    name: "Email - Paid",
+    channel: "email" as const,
+    triggerOn: "paid" as const,
+    subject: "Pembayaran Berhasil! E-Tiket Anda untuk Pesanan {{order_reference}}",
+    body: "<h1>Pembayaran Berhasil!</h1>\n  <p>Halo <strong>{{customer_name}}</strong>,</p>\n  <p>Kami telah menerima pembayaran Anda untuk pesanan <strong>{{order_reference}}</strong>.</p>\n  <p>E-tiket Anda untuk acara <strong>{{event_name}}</strong> telah diterbitkan dan terlampir dalam email ini. Anda juga bisa mengunduhnya melalui tautan berikut: {{ticket_link}}</p>\n  <p>Cukup tunjukkan QR code pada e-tiket Anda saat akan masuk ke lokasi acara.</p>\n  <p>Sampai jumpa di acara!</p>",
+    isActive: true,
+  },
+  {
+    id: 4,
+    name: "WhatsApp - Paid",
+    channel: "whatsapp" as const,
+    triggerOn: "paid" as const,
+    subject: null,
+    body: "Hore, *{{customer.name}}*! 🎉\n\nPembayaran untuk pesanan *{{order.order_reference}}* telah berhasil kami terima.\n\nE-tiket Anda untuk acara *{{event.name}}* sudah siap! Silakan unduh melalui tautan berikut:\n{{ticket_link}}\n\nSampai jumpa di lokasi!",
+    isActive: true,
+  },
+  {
+    id: 6,
+    name: "WhatsApp - Reminder",
+    channel: "whatsapp" as const,
+    triggerOn: "reminder" as const,
+    subject: "WA Reminder",
+    body: "<p>Halo, *{{customer_name}}*! 🤩 Acara *{{event_name}}* akan segera tiba! Kami sudah tidak sabar untuk menyambut Anda. 🗓 Detail Acara Anda: *Tanggal:* {{event_date}} *Lokasi:* {{event_location}} Untuk mempermudah proses check-in, pastikan Anda sudah menyiapkan e-tiket Anda. Anda bisa melihat dan mengunduhnya kapan saja melalui tautan aman di bawah ini: 👇 {{ticket_link}} Sampai jumpa di lokasi! 👋 Terima Kasih</p>",
+    isActive: true,
+  },
+];
+
+export async function seedNotificationTemplates() {
+  console.log("Seeding notification_templates...");
+  try {
+    await db.insert(notificationTemplates).values(notificationTemplatesSeed).onConflictDoNothing();
+    console.log("✓ notification_templates seeded successfully");
+  } catch (error) {
+    console.error("✗ Error seeding notification_templates:", error);
+    throw error;
+  }
+}

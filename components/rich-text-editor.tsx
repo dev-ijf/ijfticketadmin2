@@ -1,17 +1,37 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Underline from "@tiptap/extension-underline";
+import Link from "@tiptap/extension-link";
+import Image from "@tiptap/extension-image";
+import TextAlign from "@tiptap/extension-text-align";
+import { Color } from "@tiptap/extension-color";
+import { TextStyle } from "@tiptap/extension-text-style";
+import Highlight from "@tiptap/extension-highlight";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
   Bold,
   Italic,
-  Underline,
+  Underline as UnderlineIcon,
   List,
   ListOrdered,
-  Link,
-  Type,
+  Link as LinkIcon,
+  Image as ImageIcon,
+  Undo,
+  Redo,
+  Strikethrough,
+  Code,
+  Heading1,
+  Heading2,
+  Heading3,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
 } from "lucide-react";
+import { useEffect, useCallback, useRef } from "react";
 
 interface RichTextEditorProps {
   value: string;
@@ -26,183 +46,391 @@ export function RichTextEditor({
   placeholder,
   label,
 }: RichTextEditorProps) {
-  const [isPreview, setIsPreview] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isUpdatingRef = useRef(false);
 
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: {
+          levels: [1, 2, 3],
+        },
+      }),
+      Underline,
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          class: "text-blue-600 underline cursor-pointer",
+        },
+      }),
+      Image.configure({
+        HTMLAttributes: {
+          class: "max-w-full h-auto rounded",
+        },
+      }),
+      TextAlign.configure({
+        types: ["heading", "paragraph"],
+      }),
+      Color,
+      TextStyle,
+      Highlight.configure({
+        multicolor: true,
+      }),
+    ],
+    content: value || "",
+    onUpdate: ({ editor }) => {
+      if (isUpdatingRef.current) return;
+      const html = editor.getHTML();
+      onChange(html);
+    },
+    editorProps: {
+      attributes: {
+        class:
+          "prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none min-h-[200px] p-4",
+      },
+    },
+  });
+
+  // Handle external value changes (fix jump cursor bug)
   useEffect(() => {
-    // Cleanup timeout on unmount
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
+    if (!editor) return;
 
-  const insertText = (before: string, after = "") => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = value.substring(start, end);
-    const newText =
-      value.substring(0, start) +
-      before +
-      selectedText +
-      after +
-      value.substring(end);
-
-    onChange(newText);
-
-    // Restore cursor position
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
+    const currentContent = editor.getHTML();
+    // Only update if the value actually changed from external source
+    if (value !== currentContent && value !== undefined && value !== null) {
+      // Store cursor position
+      const { from, to } = editor.state.selection;
+      
+      // Set flag to prevent onChange from firing
+      isUpdatingRef.current = true;
+      
+      // Update content without emitting update event
+      editor.commands.setContent(value || "", { emitUpdate: false });
+      
+      // Restore cursor position after content is set
+      requestAnimationFrame(() => {
+        try {
+          // Try to restore cursor position, but clamp it to valid range
+          const docSize = editor.state.doc.content.size;
+          const safeFrom = Math.min(Math.max(0, from), docSize);
+          const safeTo = Math.min(Math.max(0, to), docSize);
+          if (safeFrom >= 0 && safeTo >= 0 && safeFrom <= docSize && safeTo <= docSize) {
+            editor.commands.setTextSelection({ from: safeFrom, to: safeTo });
+          }
+        } catch (e) {
+          // If cursor position is invalid, just set to end
+          const docSize = editor.state.doc.content.size;
+          if (docSize > 0) {
+            editor.commands.setTextSelection(docSize);
+          }
+        } finally {
+          isUpdatingRef.current = false;
+        }
+      });
     }
-    timeoutRef.current = setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + before.length, end + before.length);
-    }, 0);
-  };
+  }, [value, editor]);
 
-  const formatText = (format: string) => {
-    switch (format) {
-      case "bold":
-        insertText("**", "**");
-        break;
-      case "italic":
-        insertText("*", "*");
-        break;
-      case "underline":
-        insertText("<u>", "</u>");
-        break;
-      case "list":
-        insertText("\n- ", "");
-        break;
-      case "orderedList":
-        insertText("\n1. ", "");
-        break;
-      case "link":
-        insertText("[", "](url)");
-        break;
-      case "heading":
-        insertText("\n## ", "");
-        break;
+  const setLink = useCallback(() => {
+    if (!editor) return;
+
+    const previousUrl = editor.getAttributes("link").href;
+    const url = window.prompt("Masukkan URL:", previousUrl);
+
+    if (url === null) {
+      return;
     }
-  };
 
-  const convertToHtml = (text: string) => {
-    return text
-      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-      .replace(/\*(.*?)\*/g, "<em>$1</em>")
-      .replace(/^## (.*$)/gm, "<h2>$1</h2>")
-      .replace(/^- (.*$)/gm, "<li>$1</li>")
-      .replace(/^(\d+)\. (.*$)/gm, "<li>$1. $2</li>")
-      .replace(/\[([^\]]+)\]$([^)]+)$/g, '<a href="$2" target="_blank">$1</a>')
-      .replace(/\n/g, "<br>");
-  };
+    if (url === "") {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      return;
+    }
+
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+  }, [editor]);
+
+  const addImage = useCallback(() => {
+    if (!editor) return;
+
+    const url = window.prompt("Masukkan URL gambar:");
+
+    if (url) {
+      editor.chain().focus().setImage({ src: url }).run();
+    }
+  }, [editor]);
+
+  if (!editor) {
+    return null;
+  }
 
   return (
     <div className="space-y-2">
       {label && <Label>{label}</Label>}
 
       {/* Toolbar */}
-      <div className="flex flex-wrap gap-1 p-2 border rounded-t bg-gray-50">
+      <div className="flex flex-wrap gap-1 p-2 border rounded-t bg-gray-50 dark:bg-gray-800">
+        {/* Text Formatting */}
         <Button
           type="button"
-          variant="ghost"
+          variant={editor.isActive("bold") ? "default" : "ghost"}
           size="sm"
-          onClick={() => formatText("bold")}
+          onClick={() => {
+            editor.chain().focus().toggleBold().run();
+          }}
           className="h-8 w-8 p-0"
+          title="Bold (Ctrl+B)"
         >
           <Bold className="h-4 w-4" />
         </Button>
         <Button
           type="button"
-          variant="ghost"
+          variant={editor.isActive("italic") ? "default" : "ghost"}
           size="sm"
-          onClick={() => formatText("italic")}
+          onClick={() => {
+            editor.chain().focus().toggleItalic().run();
+          }}
           className="h-8 w-8 p-0"
+          title="Italic (Ctrl+I)"
         >
           <Italic className="h-4 w-4" />
         </Button>
         <Button
           type="button"
-          variant="ghost"
+          variant={editor.isActive("underline") ? "default" : "ghost"}
           size="sm"
-          onClick={() => formatText("underline")}
+          onClick={() => {
+            editor.chain().focus().toggleUnderline().run();
+          }}
           className="h-8 w-8 p-0"
+          title="Underline (Ctrl+U)"
         >
-          <Underline className="h-4 w-4" />
+          <UnderlineIcon className="h-4 w-4" />
         </Button>
         <Button
           type="button"
-          variant="ghost"
+          variant={editor.isActive("strike") ? "default" : "ghost"}
           size="sm"
-          onClick={() => formatText("heading")}
+          onClick={() => {
+            editor.chain().focus().toggleStrike().run();
+          }}
           className="h-8 w-8 p-0"
+          title="Strikethrough"
         >
-          <Type className="h-4 w-4" />
+          <Strikethrough className="h-4 w-4" />
         </Button>
         <Button
           type="button"
-          variant="ghost"
+          variant={editor.isActive("code") ? "default" : "ghost"}
           size="sm"
-          onClick={() => formatText("list")}
+          onClick={() => {
+            editor.chain().focus().toggleCode().run();
+          }}
           className="h-8 w-8 p-0"
+          title="Code"
+        >
+          <Code className="h-4 w-4" />
+        </Button>
+
+        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
+
+        {/* Headings */}
+        <Button
+          type="button"
+          variant={
+            editor.isActive("heading", { level: 1 }) ? "default" : "ghost"
+          }
+          size="sm"
+          onClick={() => {
+            editor.chain().focus().toggleHeading({ level: 1 }).run();
+          }}
+          className="h-8 w-8 p-0"
+          title="Heading 1"
+        >
+          <Heading1 className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant={
+            editor.isActive("heading", { level: 2 }) ? "default" : "ghost"
+          }
+          size="sm"
+          onClick={() => {
+            editor.chain().focus().toggleHeading({ level: 2 }).run();
+          }}
+          className="h-8 w-8 p-0"
+          title="Heading 2"
+        >
+          <Heading2 className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant={
+            editor.isActive("heading", { level: 3 }) ? "default" : "ghost"
+          }
+          size="sm"
+          onClick={() => {
+            editor.chain().focus().toggleHeading({ level: 3 }).run();
+          }}
+          className="h-8 w-8 p-0"
+          title="Heading 3"
+        >
+          <Heading3 className="h-4 w-4" />
+        </Button>
+
+        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
+
+        {/* Lists */}
+        <Button
+          type="button"
+          variant={editor.isActive("bulletList") ? "default" : "ghost"}
+          size="sm"
+          onClick={() => {
+            editor.chain().focus().toggleBulletList().run();
+          }}
+          className="h-8 w-8 p-0"
+          title="Bullet List"
         >
           <List className="h-4 w-4" />
         </Button>
         <Button
           type="button"
-          variant="ghost"
+          variant={editor.isActive("orderedList") ? "default" : "ghost"}
           size="sm"
-          onClick={() => formatText("orderedList")}
+          onClick={() => {
+            editor.chain().focus().toggleOrderedList().run();
+          }}
           className="h-8 w-8 p-0"
+          title="Numbered List"
         >
           <ListOrdered className="h-4 w-4" />
+        </Button>
+
+        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
+
+        {/* Text Alignment */}
+        <Button
+          type="button"
+          variant={
+            editor.isActive({ textAlign: "left" }) ? "default" : "ghost"
+          }
+          size="sm"
+          onClick={() => {
+            editor.chain().focus().setTextAlign("left").run();
+          }}
+          className="h-8 w-8 p-0"
+          title="Align Left"
+        >
+          <AlignLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant={
+            editor.isActive({ textAlign: "center" }) ? "default" : "ghost"
+          }
+          size="sm"
+          onClick={() => {
+            editor.chain().focus().setTextAlign("center").run();
+          }}
+          className="h-8 w-8 p-0"
+          title="Align Center"
+        >
+          <AlignCenter className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant={
+            editor.isActive({ textAlign: "right" }) ? "default" : "ghost"
+          }
+          size="sm"
+          onClick={() => {
+            editor.chain().focus().setTextAlign("right").run();
+          }}
+          className="h-8 w-8 p-0"
+          title="Align Right"
+        >
+          <AlignRight className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant={
+            editor.isActive({ textAlign: "justify" }) ? "default" : "ghost"
+          }
+          size="sm"
+          onClick={() => {
+            editor.chain().focus().setTextAlign("justify").run();
+          }}
+          className="h-8 w-8 p-0"
+          title="Justify"
+        >
+          <AlignJustify className="h-4 w-4" />
+        </Button>
+
+        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
+
+        {/* Link & Image */}
+        <Button
+          type="button"
+          variant={editor.isActive("link") ? "default" : "ghost"}
+          size="sm"
+          onClick={setLink}
+          className="h-8 w-8 p-0"
+          title="Add Link"
+        >
+          <LinkIcon className="h-4 w-4" />
         </Button>
         <Button
           type="button"
           variant="ghost"
           size="sm"
-          onClick={() => formatText("link")}
+          onClick={addImage}
           className="h-8 w-8 p-0"
+          title="Add Image"
         >
-          <Link className="h-4 w-4" />
+          <ImageIcon className="h-4 w-4" />
         </Button>
-        <div className="ml-auto">
-          <Button
-            type="button"
-            variant={isPreview ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setIsPreview(!isPreview)}
-          >
-            {isPreview ? "Edit" : "Preview"}
-          </Button>
-        </div>
+
+        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
+
+        {/* Undo/Redo */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            editor.chain().focus().undo().run();
+          }}
+          disabled={!editor.can().undo()}
+          className="h-8 w-8 p-0"
+          title="Undo (Ctrl+Z)"
+        >
+          <Undo className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            editor.chain().focus().redo().run();
+          }}
+          disabled={!editor.can().redo()}
+          className="h-8 w-8 p-0"
+          title="Redo (Ctrl+Y)"
+        >
+          <Redo className="h-4 w-4" />
+        </Button>
       </div>
 
-      {/* Editor/Preview Area */}
-      {isPreview ? (
-        <div
-          className="min-h-[200px] p-3 border border-t-0 rounded-b bg-white prose prose-sm max-w-none"
-          dangerouslySetInnerHTML={{ __html: convertToHtml(value) }}
-        />
-      ) : (
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="w-full min-h-[200px] p-3 border border-t-0 rounded-b resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      )}
-
-      {/* Help text */}
-      <div className="text-xs text-gray-500">
-        Use **bold**, *italic*, ## heading, - list, 1. numbered list,
-        [link](url)
+      {/* Editor Content */}
+      <div className="border border-t-0 rounded-b bg-white dark:bg-gray-900 relative">
+        <div className="relative">
+          <EditorContent
+            editor={editor}
+            className="min-h-[200px] focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 rounded-b"
+          />
+          {placeholder && !editor.getText() && (
+            <div className="absolute top-4 left-4 pointer-events-none text-gray-400 text-sm">
+              {placeholder}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
