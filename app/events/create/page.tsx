@@ -85,11 +85,23 @@ export default function CreateEventPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          name: formData.name || "",
+          slug: formData.slug || "",
+          description: formData.description || null,
+          location: formData.location || null,
+          start_date: formData.start_date || null,
+          end_date: formData.end_date || null,
+          image_url: formData.image_url || null,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to create event");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.error || `Failed to create event: ${response.statusText}`,
+        );
       }
 
       const data = await response.json();
@@ -103,9 +115,11 @@ export default function CreateEventPage() {
       router.push(`/events/${data.id}`);
     } catch (error) {
       console.error("Error creating event:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Gagal membuat event";
       toast({
         title: "Error",
-        description: "Gagal membuat event",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
