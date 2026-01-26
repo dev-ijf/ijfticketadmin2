@@ -98,9 +98,17 @@ interface DynamicSettings {
 export function Sidebar({
   open,
   setOpen,
-}: { open?: boolean; setOpen?: (open: boolean) => void } = {}) {
+  isMobile: isMobileProp,
+  isOpen: isDesktopOpen,
+}: { 
+  open?: boolean; 
+  setOpen?: (open: boolean) => void;
+  isMobile?: boolean;
+  isOpen?: boolean;
+} = {}) {
   const pathname = usePathname();
-  const isMobile = useIsMobile();
+  const isMobileHook = useIsMobile();
+  const isMobile = isMobileProp !== undefined ? isMobileProp : isMobileHook;
   const [dynamicSettings, setDynamicSettings] = useState<DynamicSettings>({
     logo: DEFAULT_SETTINGS[SETTING_KEYS.APP_LOGO],
     primaryColor: DEFAULT_SETTINGS[SETTING_KEYS.SIDEBAR_PRIMARY_COLOR],
@@ -338,15 +346,18 @@ export function Sidebar({
     );
   }
 
+  // Desktop sidebar - selalu render tapi bisa di-toggle visibility
   return (
     <div
-      className="hidden md:flex h-full w-64 flex-col"
+      className={`hidden md:flex h-full flex-col transition-all duration-300 ease-in-out overflow-hidden ${
+        isDesktopOpen !== false ? "w-64" : "w-0"
+      }`}
       style={{
         background: `linear-gradient(to bottom, ${dynamicSettings.primaryColor}, ${dynamicSettings.secondaryColor})`,
       }}
       key={`desktop-sidebar-${dynamicSettings.primaryColor}-${dynamicSettings.secondaryColor}`}
     >
-      {sidebarContent}
+      {isDesktopOpen !== false && sidebarContent}
     </div>
   );
 }
