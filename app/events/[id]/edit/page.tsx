@@ -116,10 +116,25 @@ export default function EditEventPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ id: params.id, ...formData }),
+        body: JSON.stringify({
+          id: params.id,
+          name: formData.name || "",
+          slug: formData.slug || "",
+          description: formData.description || null,
+          location: formData.location || null,
+          start_date: formData.start_date || null,
+          end_date: formData.end_date || null,
+          image_url: formData.image_url || null,
+          custom_fields: formData.custom_fields || [],
+        }),
       });
 
-      if (!response.ok) throw new Error("Failed to update event");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.error || `Failed to update event: ${response.statusText}`,
+        );
+      }
 
       toast({
         title: "Berhasil",
@@ -129,9 +144,11 @@ export default function EditEventPage() {
       router.push(`/events`); // Redirect to events list
     } catch (error) {
       console.error("Error updating event:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Gagal memperbarui event";
       toast({
         title: "Error",
-        description: "Gagal memperbarui event",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
