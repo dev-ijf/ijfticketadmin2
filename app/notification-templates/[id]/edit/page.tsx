@@ -54,8 +54,8 @@ export default function EditNotificationTemplate() {
   const [isRichText, setIsRichText] = useState(true);
   const [formData, setFormData] = useState({
     name: "",
-    type: "",
     channel: "",
+    trigger_on: "",
     subject: "",
     body: "",
     is_active: true,
@@ -75,8 +75,8 @@ export default function EditNotificationTemplate() {
 
       setFormData({
         name: data.name || "",
-        type: data.type || "",
         channel: data.channel || "",
+        trigger_on: data.trigger_on || "",
         subject: data.subject || "",
         body: data.body || "",
         is_active: data.is_active ?? true,
@@ -105,17 +105,32 @@ export default function EditNotificationTemplate() {
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
+          body: JSON.stringify({
+            ...formData,
+            name: formData.name || "",
+            channel: formData.channel || "",
+            trigger_on: formData.trigger_on || "",
+            subject: formData.subject || "",
+            body: formData.body || "",
+            is_active: formData.is_active ?? true,
+          }),
         },
       );
 
-      if (!response.ok) throw new Error("Failed to update template");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.error || `Failed to update template: ${response.statusText}`,
+        );
+      }
 
       toast.success("Template updated successfully!");
       router.push("/notification-templates");
     } catch (error) {
       console.error("Error updating template:", error);
-      toast.error("Failed to update template");
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to update template";
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -194,39 +209,6 @@ export default function EditNotificationTemplate() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="type">Template Type</Label>
-                    <Select
-                      value={formData.type}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, type: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="payment_confirmation">
-                          Payment Confirmation
-                        </SelectItem>
-                        <SelectItem value="payment_reminder">
-                          Payment Reminder
-                        </SelectItem>
-                        <SelectItem value="ticket_delivery">
-                          Ticket Delivery
-                        </SelectItem>
-                        <SelectItem value="event_reminder">
-                          Event Reminder
-                        </SelectItem>
-                        <SelectItem value="cancellation">
-                          Cancellation
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
                     <Label htmlFor="channel">Channel</Label>
                     <Select
                       value={formData.channel}
@@ -240,7 +222,27 @@ export default function EditNotificationTemplate() {
                       <SelectContent>
                         <SelectItem value="email">Email</SelectItem>
                         <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                        <SelectItem value="sms">SMS</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="trigger_on">Trigger On</Label>
+                    <Select
+                      value={formData.trigger_on}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, trigger_on: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select trigger" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="checkout">Checkout</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
+                        <SelectItem value="reminder">Reminder</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
