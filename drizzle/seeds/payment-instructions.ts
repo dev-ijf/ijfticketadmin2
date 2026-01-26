@@ -1,0 +1,191 @@
+import { db } from "../db";
+import { paymentInstructions } from "../schema";
+
+export const paymentInstructionsSeed = [
+  {
+    id: 1,
+    paymentChannelId: 3,
+    title: "Pembayaran melalui ATM Mandiri",
+    description: "<ol><li>Catat kode pembayaran yang anda dapat.</li><li>Gunakan ATM Mandiri untuk menyelesaikan pembayaran.</li><li>Masukkan PIN anda.</li><li>Pilih 'BAYAR/BELI'.</li><li>Pilih LAINNYA.</li><li>Cari pilihan MULTI PAYMENT.</li><li>Masukkan kode perusahaan 88558.</li><li>Masukkan kode VIRTUAL ACCOUNT.</li><li>Masukkan atau Pastikan Jumlah Pembayaran sesuai dengan Jumlah Tagihan anda kemudian tekan 'Benar'.</li><li>Pilih Tagihan Anda jika sudah sesuai tekan YA.</li><li>Konfirmasikan tagihan anda apakah sudah sesuai lalu tekan YA.</li><li>Harap Simpan Struk Transaksi yang anda dapatkan.</li></ol>",
+    stepOrder: 2,
+  },
+  {
+    id: 2,
+    paymentChannelId: 3,
+    title: "Pembayaran dengan Livin by Mandiri",
+    description: "<ol><li>Login Mandiri Online dengan memasukkan USERNAME dan PASSWORD.</li><li>Pilih menu PEMBAYARAN.</li><li>Pilih menu MULTI PAYMENT.</li><li>Cari Penyedia Jasa 'Media Indonusa'.</li><li>Masukkan NOMOR VIRTUAL ACCOUNT dan cek nominal yang akan dibayarkan, lalu pilih Lanjut.</li><li>Setelah muncul tagihan, pilih KONFIRMASI.</li><li>Masukkan PIN/ CHALLENGE CODE TOKEN.</li><li>Transaksi selesai, simpan bukti bayar anda.</li></ol>",
+    stepOrder: 1,
+  },
+  {
+    id: 3,
+    paymentChannelId: 1,
+    title: "Pembayaran Melalui ATM BNI",
+    description: "<ol><li>Masukkan Kartu Anda.</li><li>Pilih BAHASA.</li><li>Masukkan PIN ATM Anda.</li><li>Pilih 'MENU LAINNYA'.</li><li>Pilih 'TRANSFER'.</li><li>Pilih JENIS REKENING yang akan Anda gunakan (Contoh; 'Dari Rekening Tabungan').</li><li>Pilih 'VIRTUAL ACCOUNT BILLING'.</li><li>Masukkan NOMOR VIRTUAL ACCOUNT Anda.</li><li>Tagihan yang harus dibayarkan akan muncul pada LAYAR KONFIRMASI.</li><li>Konfirmasi, apabila telah sesuai, LANJUTKAN TRANSAKSI.</li><li>Transaksi Anda telah selesai.</li></ol>",
+    stepOrder: 2,
+  },
+  {
+    id: 4,
+    paymentChannelId: 1,
+    title: "Pembayaran Melalui mBanking BNI",
+    description: "<ol><li>Akses BNI Mobile Banking dari handphone kemudian masukkan USER ID dan PASSWORD.</li><li>Pilih menu \"TRANSFER\".</li><li>Pilih menu \"VIRTUAL ACCOUNT BILLING\" kemudian pilih rekening debet.</li><li>Masukkan NOMOR VIRTUAL ACCOUNT Anda pada menu \"INPUT BARU\".</li><li>Tagihan yang harus dibayarkan akan muncul pada LAYAR KONFIRMASI.</li><li>Konfirmasi transaksi dan masukkan PASSWORD TRANSAKSI.</li><li>Pembayaran Anda Telah Berhasil.</li></ol>",
+    stepOrder: 1,
+  },
+  {
+    id: 5,
+    paymentChannelId: 2,
+    title: "Pembayaran Melalui ATM BRI",
+    description: "<ol><li>Nasabah melakukan pembayaran melalui ATM Bank BRI.</li><li>Pilih Menu Transaksi Lain.</li><li>Pilih Menu Pembayaran.</li><li>Pilih Menu Lainnya.</li><li>Pilih Menu BRIVA.</li><li>Masukan 16 digit Nomor Virtual Account.</li><li>Proses Pembayaran (Ya/Tidak).</li><li>Harap Simpan Struk Transaksi yang anda dapatkan.</li></ol>",
+    stepOrder: 3,
+  },
+  {
+    id: 6,
+    paymentChannelId: 2,
+    title: "Pembayaran Melalui Mobile Banking BRI",
+    description: "<ol><li>Nasabah melakukan pembayaran melalui Mobile/SMS Banking BRI.</li><li>Nasabah memilih Menu Pembayaran melalui Menu Mobile/SMS Banking BRI.</li><li>Nasabah memilih Menu BRIVA.</li><li>Masukan 16 digit Nomor Virtual Account.</li><li>Masukan Jumlah Pembayaran sesuai Tagihan.</li><li>Masukan PIN Mobile/SMS Banking BRI.</li><li>Nasabah mendapat Notifikasi Pembayaran.</li></ol>",
+    stepOrder: 1,
+  },
+  {
+    id: 7,
+    paymentChannelId: 2,
+    title: "Pembayaran Melalui Internet Banking BRI",
+    description: "<ol><li>Nasabah melakukan pembayaran melalui Internet Banking BRI.</li><li>Nasabah memilih Menu Pembayaran.</li><li>Nasabah memilih Menu BRIVA.</li><li>Masukan Kode Bayar dengan 16 digit Nomor Virtual Account.</li><li>Masukan Password Internet Banking BRI.</li><li>Masukan mToken Internet Banking BRI.</li><li>Nasabah mendapat Notifikasi Pembayaran.</li></ol>",
+    stepOrder: 2,
+  },
+  {
+    id: 8,
+    paymentChannelId: 4,
+    title: "Pembayaran VA melalui ATM BSI",
+    description: "<ol><li>Masukkan Kartu Anda.</li><li>Pilih bahasa.</li><li>Masukkan PIN ATM Anda.</li><li>Select \"MENU LAINNYA\".</li><li>Pilih TRANSFER.</li><li>Pilih JENIS REKENING yang akan Anda gunakan.</li><li>Pilih PENAGIHAN AKUN VIRTUAL.</li><li>Masukkan NOMOR REKENING VIRTUAL Anda.</li><li>Tagihan yang harus dibayar akan muncul di LAYAR KONFIRMASI.</li><li>Konfirmasi, jika itu sesuai, \"LANJUTKAN TRANSAKSI\".</li></ol>",
+    stepOrder: 2,
+  },
+  {
+    id: 9,
+    paymentChannelId: 4,
+    title: "Pembayaran VA melalui mBanking BSI",
+    description: "<ol><li>Akses BSI Mobile Banking dari ponsel Anda lalu masukkan USER ID dan Password Anda.</li><li>Pilih menu BAYAR, Pilih Institusi.</li><li>Pada isian ID Institusi Pilih FASPAY.</li><li>Masukkan NOMOR REKENING VIRTUAL Anda pada menu 'Input Baru' lalu masukan PIN.</li><li>Tagihan yang harus dibayar akan muncul di LAYAR KONFIRMASI.</li><li>Konfirmasi transaksi.</li><li>Pembayaran Anda Telah Berhasil.</li></ol>",
+    stepOrder: 3,
+  },
+  {
+    id: 10,
+    paymentChannelId: 5,
+    title: "Pembayaran VA melalui ATM CIMB NIAGA",
+    description: "<ol><li>Masukan kartu ATM dan PIN CIMB Niaga Anda.</li><li>Pilih Menu Pembayaran.</li><li>Pilih Virtual Account.</li><li>Masukkan NOMOR VIRTUAL ACCOUNT.</li><li>Muncul nama dan nominal billing di layar konfirmasi.</li><li>Pilih OK untuk payment.</li></ol>",
+    stepOrder: 2,
+  },
+  {
+    id: 11,
+    paymentChannelId: 5,
+    title: "Pembayaran VA melalui OCTO MOBILE",
+    description: "<ol><li>Login ke Octo Mobile.</li><li>Pilih menu TRANSFER > Transfer to Other CIMB Niaga Account.</li><li>Pilih rekening sumber anda: CASA atau Rekening Ponsel.</li><li>Masukkan nomor Virtual Account Anda pada kolom Transfer To.</li><li>Masukkan jumlah amount sesuai tagihan.</li><li>Ikuti instruksi untuk menyelesaikan transaksi.</li></ol>",
+    stepOrder: 1,
+  },
+  {
+    id: 12,
+    paymentChannelId: 6,
+    title: "Pembayaran VA melalui ATM Danamon (Closed Payment)",
+    description: "<ol><li>Masukkan KARTU.</li><li>Pilih BAHASA yang akan digunakan.</li><li>Masukkan PIN, pilih LANJUTKAN.</li><li>Pada menu PILIH JUMLAH UANG ATAU JENIS TRANSAKSI, pilih PEMBAYARAN.</li><li>Pada menu PEMBAYARAN, pilih LAINNYA.</li><li>Pada menu PEMBAYARAN LANJUTAN, pilih VIRTUAL ACCOUNT.</li><li>Masukkan NOMOR VIRTUAL ACCOUNT yang akan dibayarkan, setelah itu pilih BENAR.</li><li>Setelah muncul konfirmasi data pembayaran, pastikan data yang tertera sudah benar. Pilih YA untuk membayar.</li></ol>",
+    stepOrder: 2,
+  },
+  {
+    id: 13,
+    paymentChannelId: 6,
+    title: "Pembayaran VA melalui Danamon Mobile Banking D-Bank",
+    description: "<ol><li>Masukkan USER ID & PASSWORD, pilih LOGIN.</li><li>Pilih PEMBAYARAN.</li><li>Gulung layar kebawah, pilih VIRTUAL ACCOUNT.</li><li>Jika NOMOR VA BELUM PERNAH disimpan, pilih '+TAMBAH BILLER BARU' untuk memasukkan NOMOR VA.</li><li>Pastikan kebenaran data yang tertera pada layar. Masukkan mPIN untuk mengkonfirmasi pembayaran, pilih KONFIRMASI.</li></ol>",
+    stepOrder: 1,
+  },
+  {
+    id: 14,
+    paymentChannelId: 7,
+    title: "Pembayaran VA ATM Maybank",
+    description: "<ol><li>Masukkan PIN ATM Anda.</li><li>Pilih Transfer.</li><li>Pilih Virtual Account.</li><li>Masukkan Nomor Virtual Account Yang Tertera Pada Halaman Konfirmasi.</li><li>Pilih BENAR.</li><li>Pilih YA.</li><li>Selesai.</li></ol>",
+    stepOrder: 2,
+  },
+  {
+    id: 15,
+    paymentChannelId: 7,
+    title: "Pembayaran VA Melalui Aplikasi M2U",
+    description: "<ol><li>Login Aplikasi M2U Menggunakan Fingerprint Atau Masukkan Password.</li><li>Pilih Transfer.</li><li>Pilih Virtual Account.</li><li>Pilih Sumber Tabungan.</li><li>Masukkan Nomor Virtual Account Yang Tertera Pada Halaman Konfirmasi, Klik LANJUT.</li><li>Masukkan Jumlah Transfer, Klik PROSES.</li><li>Klik KONFIRMASI & MINTA TAC.</li><li>Masukkan SMS Token/TAC, Klik OK.</li></ol>",
+    stepOrder: 1,
+  },
+  {
+    id: 16,
+    paymentChannelId: 8,
+    title: "Pembayaran Melalui ATM Permata",
+    description: "<ol><li>Masukkan PIN.</li><li>Pilih menu TRANSAKSI LAINNYA.</li><li>Pilih menu PEMBAYARAN.</li><li>Pilih menu PEMBAYARAN LAINNYA.</li><li>Pilih VIRTUAL ACCOUNT.</li><li>Masukkan NOMOR VIRTUAL ACCOUNT.</li><li>Jumlah yang harus dibayar dan nomor rekening akan muncul pada halaman konfirmasi pembayaran. Jika informasi sudah benar, pilih BENAR.</li></ol>",
+    stepOrder: 2,
+  },
+  {
+    id: 17,
+    paymentChannelId: 8,
+    title: "Pembayaran Melalui Permata Mobile",
+    description: "<ol><li>Buka aplikasi PERMATAMOBILE.</li><li>Masukkan USER ID & PASSWORD.</li><li>Pilih BAYAR TAGIHAN.</li><li>Pilih VIRTUAL ACCOUNT.</li><li>Masukkan NOMOR VIRTUAL ACCOUNT.</li><li>Pilih REKENING.</li><li>Masukkan NOMINAL PEMBAYARAN.</li><li>Muncul konfirmasi pembayaran.</li><li>Masukkan OTENTIKASI TRANSAKSI (TOKEN).</li></ol>",
+    stepOrder: 1,
+  },
+  {
+    id: 18,
+    paymentChannelId: 9,
+    title: "Pembayaran Melalui Menu Pembayaran pada Mesin ATM",
+    description: "<ol><li>Pilih \"Pembayaran\".</li><li>Pilih \"Layar Berikutnya\".</li><li>Pilih \"Virtual Account\".</li><li>Masukkan kode Virtual Account + No. Pelanggan.</li><li>Tagihan akan muncul secara otomatis atau masukkan jumlah nominal yang akan dibayarkan.</li><li>Pastikan nama penerima dan jumlah sesuai dengan yang akan dibayarkan.</li></ol>",
+    stepOrder: 2,
+  },
+  {
+    id: 19,
+    paymentChannelId: 9,
+    title: "Pembayaran Melalui Menu Transfer pada Internet Banking",
+    description: "<ol><li>Pilih \"Transfer Dana\".</li><li>Pilih \"Transfer Bank Sinarmas\".</li><li>Masukkan kode Virtual Account + No. Pelanggan.</li><li>Tagihan akan muncul secara otomatis atau masukkan jumlah nominal yang akan dibayarkan.</li><li>Pastikan nama penerima dan jumlah sesuai dengan yang akan dibayarkan.</li><li>Silahkan masukkan Nomor Token atau SMS Token Anda.</li></ol>",
+    stepOrder: 1,
+  },
+  {
+    id: 20,
+    paymentChannelId: 11,
+    title: "Pembayaran melalui OVO",
+    description: "<ol><li>Anda akan diarahkan ke aplikasi OVO.</li><li>Jika tidak, buka aplikasi OVO Anda dan cek notifikasi pembayaran yang masuk.</li><li>Pastikan detail transaksi sudah benar.</li><li>Klik Bayar untuk menyelesaikan transaksi.</li><li>Masukkan Security Code OVO Anda.</li></ol>",
+    stepOrder: null,
+  },
+  {
+    id: 21,
+    paymentChannelId: 14,
+    title: "Pembayaran melalui Alfamart",
+    description: "<ol><li>Kunjungi gerai Alfamart, Alfamidi, atau Lawson terdekat.</li><li>Sampaikan kepada kasir bahwa Anda ingin melakukan pembayaran untuk merchant Faspay.</li><li>Berikan kode pembayaran yang tertera di layar Anda kepada kasir.</li><li>Lakukan pembayaran sejumlah yang diinformasikan oleh kasir.</li><li>Simpan struk sebagai bukti pembayaran yang sah.</li></ol>",
+    stepOrder: null,
+  },
+  {
+    id: 22,
+    paymentChannelId: 4,
+    title: "Pembayaran melalui BYOND BSI",
+    description: "<br><ol><li>Akses BYOND BSI Mobile Banking dari ponsel Anda lalu masukkan&nbsp; Password Anda.</li><li>Pilih menu BAYAR, Pilih&nbsp;Lembaga</li><li>Pilih Faspay</li><li>Masukkan NOMOR REKENING VIRTUAL Anda&nbsp; (16 digit)&nbsp;</li><li>Tagihan yang harus dibayar akan muncul di LAYAR KONFIRMASI.</li><li>Konfirmasi transaksi, masukkan PIN</li><li>Pembayaran Anda Telah Berhasil.<br></li></ol>",
+    stepOrder: 1,
+  },
+  {
+    id: 23,
+    paymentChannelId: 16,
+    title: "Pembayaran dengan Mobile Banking",
+    description: "<ol><li><span style=\"color: rgb(2, 8, 23);\">Login ke aplikasi Mobile Banking atau situs Internet Banking Anda.</span></li><li>Pilih menu <b style=\"color: rgb(2, 8, 23);\">\"TRANSFER\"</b><span style=\"color: rgb(2, 8, 23);\">, lalu pilih </span><b style=\"color: rgb(2, 8, 23);\">\"TRANSFER KE BANK LAIN\"</b><span style=\"color: rgb(2, 8, 23);\"> atau </span><b style=\"color: rgb(2, 8, 23);\">\"TRANSFER ONLINE ANTARBANK\"</b><span style=\"color: rgb(2, 8, 23);\">.</span></li><li>Pilih <b style=\"color: rgb(2, 8, 23);\">\"Bank Muamalat\"</b><span style=\"color: rgb(2, 8, 23);\"> sebagai bank tujuan.</span></li><li>Masukkan nomor rekening tujuan: <b style=\"color: rgb(2, 8, 23);\">1080011701</b><span style=\"color: rgb(2, 8, 23);\">.</span></li><li>Masukkan jumlah transfer <b style=\"color: rgb(2, 8, 23);\">TEPAT</b><span style=\"color: rgb(2, 8, 23);\"> sesuai nominal tagihan + kode unik (contoh: Rp 100.234).</span></li><li>Pastikan nama penerima yang muncul adalah <b style=\"color: rgb(2, 8, 23);\">Indonesia Juara Yys</b><span style=\"color: rgb(2, 8, 23);\"> dan nominal transfer sudah benar.</span></li><li>Ikuti instruksi selanjutnya untuk menyelesaikan transaksi (biasanya memasukkan PIN atau m-Token).</li><li>Simpan bukti transfer digital (screenshot atau e-receipt) sebagai bukti pembayaran.</li></ol>",
+    stepOrder: 1,
+  },
+  {
+    id: 24,
+    paymentChannelId: 16,
+    title: "Pembayaran di ATM bank lain",
+    description: "<ol><li><span style=\"color: rgb(2, 8, 23);\">Masukkan kartu ATM dan PIN Anda.</span></li><li>Pilih menu <b style=\"color: rgb(2, 8, 23);\">\"TRANSFER\"</b><span style=\"color: rgb(2, 8, 23);\">.</span></li><li>Pilih <b style=\"color: rgb(2, 8, 23);\">\"KE REKENING BANK LAIN\"</b><span style=\"color: rgb(2, 8, 23);\">.</span></li><li>Masukkan kode Bank Muamalat: <b style=\"color: rgb(2, 8, 23);\">147</b><span style=\"color: rgb(2, 8, 23);\">.</span></li><li>Masukkan nomor rekening tujuan: <b style=\"color: rgb(2, 8, 23);\">1080011701</b><span style=\"color: rgb(2, 8, 23);\">.</span></li><li>Masukkan jumlah transfer <b style=\"color: rgb(2, 8, 23);\">TEPAT</b><span style=\"color: rgb(2, 8, 23);\"> sesuai nominal tagihan + kode unik (contoh: Rp 100.234). </span><b style=\"color: rgb(2, 8, 23);\">Jangan dibulatkan.</b></li><li>Periksa kembali rincian transaksi pada layar konfirmasi. Pastikan nama penerima adalah <b style=\"color: rgb(2, 8, 23);\">Indonesia Juara Yys</b><span style=\"color: rgb(2, 8, 23);\"> dan nominalnya sudah benar.</span></li><li>Jika sudah benar, lanjutkan transaksi.</li><li>Simpan struk sebagai bukti pembayaran yang sah.</li></ol>",
+    stepOrder: 2,
+  },
+  {
+    id: 25,
+    paymentChannelId: 17,
+    title: "Pembayaran dengan QRIS",
+    description: "<ol>\n<li>Buka aplikasi pembayaran Anda (GoPay, OVO, DANA, m-Banking, dll) dan pilih menu \"Scan QR\" atau \"Bayar\".</li>\n<li>Pindai (scan) kode QR yang tersedia.</li>\n<li>Jika tidak bisa, simpan dulu gambar QR ini, lalu pilih opsi \"Unggah dari Galeri\" di aplikasi Anda.</li>\n<li>Masukkan Nominal pembayaran secara manual TEPAT sesuai contoh di atas (misal: <code>100234</code>). Jangan dibulatkan.</li>\n<li>Pastikan nama Merchant yang muncul adalah \"Kreativa Global School\".</li>\n<li>Lanjutkan dan selesaikan transaksi dengan memasukkan PIN Anda, lalu simpan bukti pembayaran</li>\n</ol>\n",
+    stepOrder: 1,
+  },
+];
+
+export async function seedPaymentInstructions() {
+  console.log("Seeding payment_instructions...");
+  try {
+    await db.insert(paymentInstructions).values(paymentInstructionsSeed).onConflictDoNothing();
+    console.log("✓ payment_instructions seeded successfully");
+  } catch (error) {
+    console.error("✗ Error seeding payment_instructions:", error);
+    throw error;
+  }
+}
