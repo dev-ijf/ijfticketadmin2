@@ -303,9 +303,19 @@ export default function PaymentInstructionsPage() {
         const response = await fetch("/api/payment-instructions", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: editingInstruction.id, ...formData }),
+          body: JSON.stringify({
+            id: editingInstruction.id,
+            title: formData.title || "",
+            description: formData.description || "",
+          }),
         });
-        if (!response.ok) throw new Error("Failed to update instruction");
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData.error ||
+              `Failed to update instruction: ${response.statusText}`,
+          );
+        }
 
         toast({
           title: "Success",
@@ -316,11 +326,18 @@ export default function PaymentInstructionsPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            ...formData,
+            title: formData.title || "",
+            description: formData.description || "",
             payment_channel_id: Number(params.id),
           }),
         });
-        if (!response.ok) throw new Error("Failed to create instruction");
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData.error ||
+              `Failed to create instruction: ${response.statusText}`,
+          );
+        }
 
         toast({
           title: "Success",
@@ -335,9 +352,13 @@ export default function PaymentInstructionsPage() {
       fetchData();
     } catch (error) {
       console.error("Error saving instruction:", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to save instruction";
       toast({
         title: "Error",
-        description: "Failed to save instruction",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

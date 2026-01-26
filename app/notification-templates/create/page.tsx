@@ -89,16 +89,31 @@ export default function CreateNotificationTemplate() {
       const response = await fetch("/api/notification-templates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          name: formData.name || "",
+          channel: formData.channel || "",
+          trigger_on: formData.trigger_on || "",
+          subject: formData.subject || "",
+          body: formData.body || "",
+          is_active: formData.is_active ?? true,
+        }),
       });
 
-      if (!response.ok) throw new Error("Failed to create template");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.error || `Failed to create template: ${response.statusText}`,
+        );
+      }
 
       toast.success("Template created successfully!");
       router.push("/notification-templates");
     } catch (error) {
       console.error("Error creating template:", error);
-      toast.error("Failed to create template");
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to create template";
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
