@@ -435,7 +435,19 @@ export async function createFunctions() {
     // get_pivoted_ticket_data_by_event
     sql`
       CREATE OR REPLACE FUNCTION public.get_pivoted_ticket_data_by_event(p_event_id bigint)
-      RETURNS TABLE(id bigint, ticket_code text, attendee_name text, attendee_email text, is_checked_in boolean, checked_in_at timestamp with time zone, created_at timestamp with time zone, order_reference text, ticket_type_name text, event_name text, custom_data jsonb)
+      RETURNS TABLE(
+        id bigint,
+        ticket_code text,
+        attendee_name text,
+        attendee_email text,
+        is_checked_in boolean,
+        checked_in_at timestamp with time zone,
+        created_at timestamp with time zone,
+        order_reference text,
+        ticket_type_name text,
+        event_name text,
+        custom_data jsonb
+      )
       LANGUAGE plpgsql
       AS $function$
       BEGIN
@@ -452,19 +464,55 @@ export async function createFunctions() {
               tt.name as ticket_type_name,
               e.name as event_name,
               (
-                  -- Get all current custom fields for the event, with answers if they exist
-                  -- This ensures all current custom fields are always present in the result
+                  /*
+                    Ambil semua event_custom_fields untuk event tsb, lalu:
+                    1. Utamakan nilai dari ticket_custom_field_answers (skema baru)
+                    2. Jika kosong, fallback ke order_item_attendees.custom_answers (data lama),
+                       baik yang key-nya berupa ID field ("4") maupun field_name ("asal_sekolah").
+                    3. Nilai disimpan "apa adanya" (tidak dimodifikasi), sehingga sama dengan JSON sumber.
+                  */
                   SELECT COALESCE(
                       jsonb_object_agg(
-                          ecf.field_name, 
-                          COALESCE(tcfa.answer_value, '')
+                          ecf.field_name,
+                          COALESCE(
+                              -- 1. Skema baru: nilai di ticket_custom_field_answers
+                              tcfa.answer_value,
+                              -- 2. Fallback: JSON lama pakai key = id atau field_name
+                              oia.custom_answers ->> ecf.id::text,
+                              oia.custom_answers ->> ecf.field_name,
+                              -- 3. Fallback terakhir: mapping berdasarkan urutan (index) field
+                              (
+                                  SELECT legacy_val
+                                  FROM (
+                                      SELECT
+                                          value AS legacy_val,
+                                          row_number() OVER (ORDER BY key) AS rn
+                                      FROM jsonb_each_text(oia.custom_answers)
+                                  ) legacy
+                                  WHERE legacy.rn = (
+                                      SELECT field_pos.rn
+                                      FROM (
+                                          SELECT
+                                              ecf2.id AS id,
+                                              row_number() OVER (
+                                                  ORDER BY ecf2.sort_order, ecf2.id
+                                              ) AS rn
+                                          FROM event_custom_fields ecf2
+                                          WHERE ecf2.event_id = p_event_id
+                                      ) field_pos
+                                      WHERE field_pos.id = ecf.id
+                                  )
+                                  LIMIT 1
+                              ),
+                              ''
+                          )
                       ),
                       '{}'::jsonb
                   )
                   FROM event_custom_fields ecf
                   LEFT JOIN ticket_custom_field_answers tcfa ON (
-                      tcfa.custom_field_id = ecf.id AND 
-                      tcfa.ticket_id = t.id
+                      tcfa.custom_field_id = ecf.id
+                      AND tcfa.ticket_id = t.id
                   )
                   WHERE ecf.event_id = p_event_id
               ) AS custom_data
@@ -472,6 +520,7 @@ export async function createFunctions() {
           JOIN orders o ON t.order_id = o.id
           JOIN events e ON o.event_id = e.id
           JOIN ticket_types tt ON t.ticket_type_id = tt.id
+          LEFT JOIN order_item_attendees oia ON oia.ticket_id = t.id
           WHERE o.event_id = p_event_id
           ORDER BY t.created_at DESC;
       END;

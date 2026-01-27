@@ -219,7 +219,13 @@ export default function TicketsPage() {
               detailData.custom_fields.length > 0
             ) {
               detailData.custom_fields.forEach((field: any) => {
-                detailMessage += `<br/>${field.field_label}: ${field.answer_value}`;
+                const display =
+                  field.display_value ||
+                  (field.answer_label &&
+                    field.answer_label !== field.answer_value
+                    ? `${field.answer_label} (${field.answer_value})`
+                    : field.answer_value);
+                detailMessage += `<br/>${field.field_label}: ${display}`;
               });
             }
           } else {
@@ -410,7 +416,7 @@ export default function TicketsPage() {
       console.log(`Fetched ${data.length} tickets from database`);
       console.log(
         "First 5 tickets from DB:",
-        data.slice(0, 5).map((t) => ({
+        data.slice(0, 5).map((t: any) => ({
           id: t.id,
           code: t.ticket_code,
           checked_in: t.is_checked_in,

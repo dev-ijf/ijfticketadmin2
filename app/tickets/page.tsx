@@ -321,7 +321,13 @@ export default function TicketsPage() {
               detailData.custom_fields.length > 0
             ) {
               detailData.custom_fields.forEach((field: any) => {
-                detailMessage += `<br/>${field.field_label}: ${field.answer_value}`;
+                const display =
+                  field.display_value ||
+                  (field.answer_label &&
+                    field.answer_label !== field.answer_value
+                    ? `${field.answer_label} (${field.answer_value})`
+                    : field.answer_value);
+                detailMessage += `<br/>${field.field_label}: ${display}`;
               });
             }
           } else {
@@ -454,14 +460,17 @@ export default function TicketsPage() {
     }
 
     try {
-      const response = await fetch(`/api/events/custom-fields?event_id=${eventId}`);
+      const response = await fetch(
+        `/api/events/custom-fields?event_id=${eventId}`,
+      );
       if (!response.ok) throw new Error("Failed to fetch custom fields");
       const data = await response.json();
       setCustomFieldsForFilter(data.custom_fields || []);
       // Reset custom field filters when event changes
       const newFilters: Record<string, string> = {};
       data.custom_fields?.forEach((field: any) => {
-        newFilters[field.field_name] = "";
+        // gunakan "all" sebagai nilai default (tidak ada filter)
+        newFilters[field.field_name] = "all";
       });
       setCustomFieldFilters(newFilters);
     } catch (error) {
@@ -508,11 +517,14 @@ export default function TicketsPage() {
     // Filter by custom fields
     const matchesCustomFields = Object.entries(customFieldFilters).every(
       ([fieldName, filterValue]) => {
-        if (!filterValue) return true; // No filter set for this field
+        // "all" atau string kosong berarti tidak ada filter untuk field ini
+        if (!filterValue || filterValue === "all") return true;
         const ticketValue = ticket.custom_data?.[fieldName];
         if (!ticketValue) return false;
-        return String(ticketValue).toLowerCase().includes(filterValue.toLowerCase());
-      }
+        return String(ticketValue)
+          .toLowerCase()
+          .includes(filterValue.toLowerCase());
+      },
     );
 
     return matchesSearch && matchesStatus && matchesCustomFields;
@@ -861,10 +873,14 @@ export default function TicketsPage() {
                           }
                         >
                           <SelectTrigger className="w-full">
-                            <SelectValue placeholder={`Semua ${field.field_label}`} />
+                          <SelectValue
+                            placeholder={`Semua ${field.field_label}`}
+                          />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Semua {field.field_label}</SelectItem>
+                            <SelectItem value="all">
+                              Semua {field.field_label}
+                            </SelectItem>
                             {field.options?.map((option: any) => (
                               <SelectItem key={option.id} value={option.option_value}>
                                 {option.option_label}

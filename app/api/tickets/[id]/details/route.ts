@@ -47,11 +47,12 @@ export async function GET(
 
     const ticket = ticketDetails[0];
 
-    // Get custom field answers for this ticket
+    // Get custom field answers for this ticket + mapping ke option label (jika ada)
     const customFields = await sql`
       SELECT
         tcfa.id,
         tcfa.answer_value,
+        eco.option_label,
         ecf.id as custom_field_id,
         ecf.field_name,
         ecf.field_label,
@@ -59,6 +60,9 @@ export async function GET(
         ecf.sort_order
       FROM ticket_custom_field_answers tcfa
       JOIN event_custom_fields ecf ON tcfa.custom_field_id = ecf.id
+      LEFT JOIN event_custom_field_options eco
+        ON eco.custom_field_id = ecf.id
+       AND eco.option_value = tcfa.answer_value
       WHERE tcfa.ticket_id = ${ticketId}
       ORDER BY ecf.sort_order ASC
     `;
@@ -81,7 +85,15 @@ export async function GET(
         field_name: field.field_name,
         field_label: field.field_label,
         field_type: field.field_type,
+        // nilai mentah yang tersimpan di DB
         answer_value: field.answer_value,
+        // label dari tabel options (kalau ada)
+        answer_label: field.option_label,
+        // display_value = kombinasi label + value (lebih enak dibaca di UI)
+        display_value:
+          field.option_label && field.option_label !== field.answer_value
+            ? `${field.option_label} (${field.answer_value})`
+            : field.answer_value,
         sort_order: field.sort_order
       }))
     };

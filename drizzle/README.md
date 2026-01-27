@@ -3,24 +3,24 @@
 ## Setup Database
 
 1. Install dependencies:
-```bash
+\`\`\`bash
 pnpm install
-```
+\`\`\`
 
 2. Generate migration files:
-```bash
+\`\`\`bash
 pnpm run db:generate
-```
+\`\`\`
 
 3. Run migrations (creates tables, sequences, functions, views, triggers):
-```bash
+\`\`\`bash
 pnpm run db:migrate
-```
+\`\`\`
 
 4. Seed database (payment_channels, payment_instructions, notification_templates, and sample data):
-```bash
+\`\`\`bash
 pnpm run db:seed
-```
+\`\`\`
 
 ## Scripts
 

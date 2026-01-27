@@ -90,10 +90,38 @@ export async function GET(
       WHERE tcfa.ticket_id = ${ticketId}
     `;
 
-    // Create answers map
+    // Ambil juga data legacy dari order_item_attendees.custom_answers (jika ada)
+    const attendeeRows = await sql`
+      SELECT custom_answers
+      FROM order_item_attendees
+      WHERE ticket_id = ${ticketId}
+      LIMIT 1
+    `;
+
+    const legacyAnswers: Record<string, any> =
+      attendeeRows.length > 0 && attendeeRows[0].custom_answers
+        ? attendeeRows[0].custom_answers
+        : {};
+
+    // Create answers map: utamakan skema baru (ticket_custom_field_answers),
+    // kalau kosong fallback ke JSON lama custom_answers (by id ataupun field_name).
     const answersMap: Record<string, string> = {};
+
     customAnswers.forEach((answer: any) => {
       answersMap[answer.field_name] = answer.answer_value;
+    });
+
+    customFields.forEach((field: any) => {
+      const existing = answersMap[field.field_name];
+      if (!existing) {
+        const byId = legacyAnswers[String(field.id)];
+        const byName = legacyAnswers[field.field_name];
+        if (byId !== undefined && byId !== null && byId !== "") {
+          answersMap[field.field_name] = String(byId);
+        } else if (byName !== undefined && byName !== null && byName !== "") {
+          answersMap[field.field_name] = String(byName);
+        }
+      }
     });
 
     // Format response
