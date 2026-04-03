@@ -1,9 +1,8 @@
+import path from "node:path";
 import { drizzle } from "drizzle-orm/neon-serverless";
-import { neon } from "@neondatabase/serverless";
 import { migrate } from "drizzle-orm/neon-serverless/migrator";
+import { neon } from "@neondatabase/serverless";
 import * as dotenv from "dotenv";
-import { createSequences } from "./sequences";
-import { createFunctions, createViews, createTriggers } from "./functions";
 
 dotenv.config({ path: ".env.local" });
 dotenv.config();
@@ -19,30 +18,19 @@ if (!databaseUrl) {
 }
 
 const sql = neon(databaseUrl);
-const db = drizzle(sql);
+const db = drizzle(sql as never);
+
+const migrationsFolder = path.join(process.cwd(), "drizzle", "migrations");
 
 async function main() {
-  console.log("🔄 Running migrations...");
+  console.log("Running Drizzle migrations from", migrationsFolder);
   try {
-    // Create sequences first
-    console.log("📦 Creating sequences...");
-    await createSequences();
-    
-    // Run Drizzle migrations
-    console.log("📦 Running Drizzle migrations...");
-    await migrate(db, { migrationsFolder: "./drizzle/migrations" });
-    
-    // Create functions, views, and triggers
-    console.log("📦 Creating functions, views, and triggers...");
-    await createFunctions();
-    await createViews();
-    await createTriggers();
-    
-    console.log("✅ Migrations completed successfully!");
+    await migrate(db, { migrationsFolder });
+    console.log("Migrations completed successfully.");
   } catch (error) {
-    console.error("❌ Migration failed:", error);
+    console.error("Migration failed:", error);
     process.exit(1);
   }
 }
 
-main();
+void main();

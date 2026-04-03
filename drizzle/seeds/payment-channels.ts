@@ -1,6 +1,3 @@
-import { db } from "./db";
-import { paymentChannels } from "./schema";
-
 export const paymentChannelsSeed = [
   {
     id: 1,
@@ -219,14 +216,3 @@ export const paymentChannelsSeed = [
     imageQris: "",
   },
 ];
-
-export async function seedPaymentChannels() {
-  console.log("Seeding payment_channels...");
-  try {
-    await db.insert(paymentChannels).values(paymentChannelsSeed).onConflictDoNothing();
-    console.log("✓ payment_channels seeded successfully");
-  } catch (error) {
-    console.error("✗ Error seeding payment_channels:", error);
-    throw error;
-  }
-}

@@ -1,6 +1,3 @@
-import { db } from "../db";
-import { paymentInstructions } from "../schema";
-
 export const paymentInstructionsSeed = [
   {
     id: 1,
@@ -178,14 +175,3 @@ export const paymentInstructionsSeed = [
     stepOrder: 1,
   },
 ];
-
-export async function seedPaymentInstructions() {
-  console.log("Seeding payment_instructions...");
-  try {
-    await db.insert(paymentInstructions).values(paymentInstructionsSeed).onConflictDoNothing();
-    console.log("✓ payment_instructions seeded successfully");
-  } catch (error) {
-    console.error("✗ Error seeding payment_instructions:", error);
-    throw error;
-  }
-}

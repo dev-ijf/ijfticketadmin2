@@ -1,6 +1,3 @@
-import { db } from "../db";
-import { notificationTemplates } from "../schema";
-
 export const notificationTemplatesSeed = [
   {
     id: 1,
@@ -48,14 +45,3 @@ export const notificationTemplatesSeed = [
     isActive: true,
   },
 ];
-
-export async function seedNotificationTemplates() {
-  console.log("Seeding notification_templates...");
-  try {
-    await db.insert(notificationTemplates).values(notificationTemplatesSeed).onConflictDoNothing();
-    console.log("✓ notification_templates seeded successfully");
-  } catch (error) {
-    console.error("✗ Error seeding notification_templates:", error);
-    throw error;
-  }
-}

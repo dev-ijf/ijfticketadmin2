@@ -6,7 +6,8 @@ dotenv.config();
 
 export default defineConfig({
   schema: "./drizzle/schema/index.ts",
-  out: "./drizzle/migrations",
+  // Jangan timpa migrasi SQL yang di-commit; generate ke folder terpisah jika perlu.
+  out: "./drizzle/migrations-kit-output",
   dialect: "postgresql",
   dbCredentials: {
     url:

@@ -1,45 +1,39 @@
-# Drizzle ORM Setup
+# Migrasi & seed (Drizzle sebagai alat saja)
 
-## Setup Database
+Aplikasi Next.js tetap memakai Neon + SQL template di `lib/database.ts`. Folder ini hanya untuk **CLI**: `npm run migrate` dan `npm run seed`.
 
-1. Install dependencies:
-\`\`\`bash
-pnpm install
-\`\`\`
+## Urutan untuk database baru
 
-2. Generate migration files:
-\`\`\`bash
-pnpm run db:generate
-\`\`\`
+1. Siapkan `.env` / `.env.local` dengan salah satu variabel: `DATABASE_URL`, `POSTGRES_URL`, atau `NEON_DATABASE_URL`.
+2. `npm run migrate` — menjalankan file SQL di `drizzle/migrations/` lewat migrator Drizzle (tabel `drizzle.__drizzle_migrations`).
+3. `npm run seed` — mengisi data awal (payment channels, instruksi bayar, template notifikasi, settings). Idempoten (`ON CONFLICT DO NOTHING`).
 
-3. Run migrations (creates tables, sequences, functions, views, triggers):
-\`\`\`bash
-pnpm run db:migrate
-\`\`\`
+## Sumber kebenaran SQL (fork / lembaga lain)
 
-4. Seed database (payment_channels, payment_instructions, notification_templates, and sample data):
-\`\`\`bash
-pnpm run db:seed
-\`\`\`
+- [`refs/event_kreativa.sql`](../refs/event_kreativa.sql) — DDL + indeks + FK  
+- [`refs/function_event.sql`](../refs/function_event.sql) — fungsi & view  
+- [`refs/triggers.sql`](../refs/triggers.sql) — trigger (setelah fungsi ada)  
+- [`refs/seed.sql`](../refs/seed.sql) — dump referensi (biasanya **bukan** untuk dijalankan utuh di produksi; berisi data riil)
 
-## Scripts
+Setelah mengubah file di `refs/`, regenerasi migrasi Drizzle:
 
-- `pnpm run db:generate` - Generate migration files from schema
-- `pnpm run db:migrate` - Run migrations to create database structure
-- `pnpm run db:seed` - Seed database with initial data
-- `pnpm run db:studio` - Open Drizzle Studio (database GUI)
+```bash
+npm run migrations:build
+```
 
-## Structure
+Lalu commit `drizzle/migrations/` dan `meta/_journal.json`.
 
-- `drizzle/schema/index.ts` - All table schemas
-- `drizzle/migrations/` - Generated migration files
-- `drizzle/seeds/` - Seed files for initial data
-- `drizzle/functions.ts` - PostgreSQL functions and triggers
-- `drizzle/sequences.ts` - Database sequences
-- `drizzle/db.ts` - Database connection instance
+## Variabel opsional seed
 
-## Notes
+| Variabel | Efek |
+|----------|------|
+| `SEED_SAMPLE_DATA=1` | Menambah event contoh `sample-event-2025`, tiket, customer, order (idempoten sejauh mungkin). |
+| `SEED_IMPORT_REF_SQL=1` | Menjalankan seluruh `refs/seed.sql` (berisiko duplikat / data sensitif; hanya jika Anda tahu isinya). |
 
-- Migrations include: sequences, tables, indexes, foreign keys, functions, views, and triggers
-- Seeds include: payment_channels (18 records), payment_instructions (25 records), notification_templates (5 records), and sample data (events, customers, orders, tickets)
-- All functions and triggers from `function_kreativa.sql` are included in migrations
+## drizzle-kit
+
+`drizzle/schema/index.ts` hanya **stub** agar `drizzle-kit` tidak membutuhkan skema ORM penuh. **Jangan** `drizzle-kit push` ke produksi kecuali Anda sengaja ingin tabel stub. Output generate default mengarah ke `drizzle/migrations-kit-output` agar tidak menimpa migrasi SQL yang di-commit.
+
+## Catatan PostgreSQL
+
+`refs/triggers.sql` memakai `EXECUTE FUNCTION` (PostgreSQL 14+). Untuk versi lebih lama, ganti ke `EXECUTE PROCEDURE` jika diperlukan.
