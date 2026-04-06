@@ -48,7 +48,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Trash2, MessageSquare } from "lucide-react";
+import { Trash2, MessageSquare, ImageIcon } from "lucide-react";
 import * as XLSX from "xlsx";
 
 type Order = {
@@ -151,6 +151,10 @@ export default function OrdersPage() {
     orderId: null,
     orderReference: null,
   });
+
+  const [proofTransferModalUrl, setProofTransferModalUrl] = useState<
+    string | null
+  >(null);
 
   // Upload states
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -1237,6 +1241,19 @@ export default function OrdersPage() {
                             <MessageSquare className="h-4 w-4" />
                           </Button>
                         )}
+                        {order.proof_transfer?.trim() ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const u = order.proof_transfer?.trim();
+                              if (u) setProofTransferModalUrl(u);
+                            }}
+                            title="Lihat bukti transfer"
+                          >
+                            <ImageIcon className="h-4 w-4" />
+                          </Button>
+                        ) : null}
                         <Button
                           variant="destructive"
                           size="sm"
@@ -1392,6 +1409,31 @@ export default function OrdersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={proofTransferModalUrl !== null}
+        onOpenChange={(open) => {
+          if (!open) setProofTransferModalUrl(null);
+        }}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Bukti transfer</DialogTitle>
+            <DialogDescription>
+              Pratinjau bukti pembayaran yang diunggah pelanggan.
+            </DialogDescription>
+          </DialogHeader>
+          {proofTransferModalUrl ? (
+            <div className="flex justify-center rounded-md border bg-muted/30 p-2">
+              <img
+                src={proofTransferModalUrl}
+                alt="Bukti transfer"
+                className="max-h-[75vh] w-full max-w-full object-contain"
+              />
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
